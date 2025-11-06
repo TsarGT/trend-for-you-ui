@@ -99,13 +99,13 @@ const Index = () => {
     {
       title: "Electric Pulse",
       artist: "Neon Waves",
-      reason: "Listeners of Metro Kings listen to this song",
+      reason: "Listeners of Metro Kings are listening to this album today",
       type: "Album" as const,
     },
     {
       title: "Urban Jazz",
       artist: "City Sounds",
-      reason: "Most streamed today in your area",
+      reason: "Top tracks of your favourite artist of the day",
       type: "Song" as const,
     },
   ];

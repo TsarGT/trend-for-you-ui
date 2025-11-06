@@ -51,10 +51,10 @@ export const TrackCard = ({
             )}
           </div>
           <div className="space-y-0.5">
-            <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+            <h4 className={`font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors ${type === "Playlist" ? "text-base" : "text-sm"}`}>
               {title}
             </h4>
-            <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>
+            {artist && <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>}
             {reason && (
               <p className="text-xs text-muted-foreground/80 line-clamp-2 pt-1">
                 <span className="text-primary">Why this?</span> {reason}
@@ -85,7 +85,7 @@ export const TrackCard = ({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+            <h4 className={`font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors ${type === "Playlist" ? "text-base" : "text-sm"}`}>
               {title}
             </h4>
             {type && (
@@ -97,7 +97,7 @@ export const TrackCard = ({
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>
+          {artist && <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>}
           {reason && type !== "Playlist" && (
             <p className="text-xs text-muted-foreground/80 line-clamp-1 pt-1">
               <span className="text-primary">Why this?</span> {reason}

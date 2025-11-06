@@ -72,18 +72,18 @@ const Index = () => {
   // Mock data for Pre-made Playlists
   const premadePlaylists = [
     {
-      title: "Cosmic Journey",
-      artist: "Space Odyssey",
+      title: "Playlist 1",
+      artist: "",
       type: "Playlist" as const,
     },
     {
-      title: "Rainfall Memories",
-      artist: "Acoustic Dreams",
+      title: "Playlist 2",
+      artist: "",
       type: "Playlist" as const,
     },
     {
-      title: "Neon Lights",
-      artist: "Synthwave Collective",
+      title: "Playlist 3",
+      artist: "",
       type: "Playlist" as const,
     },
   ];

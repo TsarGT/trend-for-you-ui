@@ -1,4 +1,4 @@
-import { Music, TrendingUp, TrendingDown, Sparkles, Disc3, Music2 } from "lucide-react";
+import { Music, TrendingUp, TrendingDown, Sparkles, Disc3, Music2, ListMusic } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -10,7 +10,7 @@ interface TrackCardProps {
   reason?: string;
   layout?: "horizontal" | "vertical";
   showRank?: boolean;
-  type?: "Song" | "Album";
+  type?: "Song" | "Album" | "Playlist";
 }
 
 export const TrackCard = ({
@@ -44,7 +44,11 @@ export const TrackCard = ({
       <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer">
         <div className="flex flex-col gap-2">
           <div className="aspect-square bg-muted rounded-md flex items-center justify-center overflow-hidden">
-            <Music className="w-10 h-10 text-muted-foreground" />
+            {type === "Playlist" ? (
+              <ListMusic className="w-10 h-10 text-muted-foreground" />
+            ) : (
+              <Music className="w-10 h-10 text-muted-foreground" />
+            )}
           </div>
           <div className="space-y-0.5">
             <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
@@ -72,7 +76,11 @@ export const TrackCard = ({
         )}
         
         <div className="w-12 h-12 flex-shrink-0 bg-muted rounded-md flex items-center justify-center overflow-hidden">
-          <Music className="w-6 h-6 text-muted-foreground" />
+          {type === "Playlist" ? (
+            <ListMusic className="w-6 h-6 text-muted-foreground" />
+          ) : (
+            <Music className="w-6 h-6 text-muted-foreground" />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -82,13 +90,15 @@ export const TrackCard = ({
             </h4>
             {type && (
               <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5 flex items-center gap-1">
-                {type === "Album" ? <Disc3 className="w-3 h-3" /> : <Music2 className="w-3 h-3" />}
+                {type === "Album" ? <Disc3 className="w-3 h-3" /> : 
+                 type === "Playlist" ? <ListMusic className="w-3 h-3" /> :
+                 <Music2 className="w-3 h-3" />}
                 {type}
               </Badge>
             )}
           </div>
           <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>
-          {reason && (
+          {reason && type !== "Playlist" && (
             <p className="text-xs text-muted-foreground/80 line-clamp-1 pt-1">
               <span className="text-primary">Why this?</span> {reason}
             </p>

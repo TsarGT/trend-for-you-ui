@@ -74,17 +74,17 @@ const Index = () => {
     {
       title: "Cosmic Journey",
       artist: "Space Odyssey",
-      reason: "Listeners of Aurora Sky listen to this song",
+      type: "Playlist" as const,
     },
     {
       title: "Rainfall Memories",
       artist: "Acoustic Dreams",
-      reason: "Top tracks of your favourite artist of the day",
+      type: "Playlist" as const,
     },
     {
       title: "Neon Lights",
       artist: "Synthwave Collective",
-      reason: "Listeners of Luna Eclipse listen to this song",
+      type: "Playlist" as const,
     },
   ];
 
@@ -228,7 +228,7 @@ const Index = () => {
                     key={index}
                     title={track.title}
                     artist={track.artist}
-                    reason={track.reason}
+                    type={track.type}
                   />
                 ))}
               </div>

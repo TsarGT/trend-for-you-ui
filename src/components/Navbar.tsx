@@ -8,7 +8,7 @@ export const Navbar = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Music2 className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Trending for You</h1>
+            <h1 className="text-2xl font-bold text-foreground">TrendTracks</h1>
           </div>
           
           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">

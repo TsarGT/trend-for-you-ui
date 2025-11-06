@@ -94,16 +94,19 @@ const Index = () => {
       title: "Midnight Dreams",
       artist: "Luna Eclipse",
       reason: "Top tracks of your favourite artist of the day",
+      type: "Song" as const,
     },
     {
       title: "Electric Pulse",
       artist: "Neon Waves",
       reason: "Listeners of Metro Kings listen to this song",
+      type: "Album" as const,
     },
     {
       title: "Urban Jazz",
       artist: "City Sounds",
       reason: "Most streamed today in your area",
+      type: "Song" as const,
     },
   ];
 
@@ -208,10 +211,10 @@ const Index = () => {
           </Tabs>
         </section>
 
-        {/* Section 3: Trending for You */}
+        {/* Section 3: Made for You */}
         <section>
           <div className="mb-4">
-            <h2 className="text-2xl font-bold text-foreground mb-1">Trending for You</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-1">Made for You</h2>
             <p className="text-sm text-muted-foreground">Personalized recommendations</p>
           </div>
 
@@ -233,7 +236,7 @@ const Index = () => {
 
             {/* Popular Albums/Songs of the Day */}
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-3">Popular Today</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-3">Top Choices for You</h3>
               <div className="grid gap-2">
                 {popularToday.map((track, index) => (
                   <TrackCard
@@ -241,6 +244,7 @@ const Index = () => {
                     title={track.title}
                     artist={track.artist}
                     reason={track.reason}
+                    type={track.type}
                   />
                 ))}
               </div>

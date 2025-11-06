@@ -1,4 +1,4 @@
-import { Music, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import { Music, TrendingUp, TrendingDown, Sparkles, Disc3, Music2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -10,6 +10,7 @@ interface TrackCardProps {
   reason?: string;
   layout?: "horizontal" | "vertical";
   showRank?: boolean;
+  type?: "Song" | "Album";
 }
 
 export const TrackCard = ({
@@ -20,6 +21,7 @@ export const TrackCard = ({
   reason,
   layout = "horizontal",
   showRank = false,
+  type,
 }: TrackCardProps) => {
   const getRankChangeColor = () => {
     if (rankChange === "NEW") return "hsl(var(--rank-new))";
@@ -74,9 +76,17 @@ export const TrackCard = ({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-            {title}
-          </h4>
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+              {title}
+            </h4>
+            {type && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5 flex items-center gap-1">
+                {type === "Album" ? <Disc3 className="w-3 h-3" /> : <Music2 className="w-3 h-3" />}
+                {type}
+              </Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>
           {reason && (
             <p className="text-xs text-muted-foreground/80 line-clamp-1 pt-1">

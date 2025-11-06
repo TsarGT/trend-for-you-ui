@@ -69,8 +69,8 @@ const Index = () => {
     ],
   };
 
-  // Mock data for Personalized playlists
-  const personalizedTracks = [
+  // Mock data for Pre-made Playlists
+  const premadePlaylists = [
     {
       title: "Cosmic Journey",
       artist: "Space Odyssey",
@@ -86,16 +86,10 @@ const Index = () => {
       artist: "Synthwave Collective",
       reason: "Listeners of Luna Eclipse listen to this song",
     },
-    {
-      title: "Mountain Echo",
-      artist: "Folk Wanderers",
-      reason: "Top tracks of your favourite artist of the day",
-    },
-    {
-      title: "Urban Jazz",
-      artist: "City Sounds",
-      reason: "Listeners of The Wanderers listen to this song",
-    },
+  ];
+
+  // Mock data for Popular Albums/Songs of the Day
+  const popularToday = [
     {
       title: "Midnight Dreams",
       artist: "Luna Eclipse",
@@ -105,6 +99,11 @@ const Index = () => {
       title: "Electric Pulse",
       artist: "Neon Waves",
       reason: "Listeners of Metro Kings listen to this song",
+    },
+    {
+      title: "Urban Jazz",
+      artist: "City Sounds",
+      reason: "Most streamed today in your area",
     },
   ];
 
@@ -133,18 +132,18 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <main className="container mx-auto px-4 py-8 space-y-12">
+      <main className="container mx-auto px-4 py-6 space-y-8">
         {/* Section 1: Global Now */}
         <section>
-          <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+          <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-3xl font-bold text-foreground mb-2">Global Now</h2>
-              <p className="text-muted-foreground">Top Trending Tracks Worldwide</p>
+              <h2 className="text-2xl font-bold text-foreground mb-1">Global Now</h2>
+              <p className="text-sm text-muted-foreground">Top Trending Tracks Worldwide</p>
             </div>
             <div className="flex items-center gap-2">
-              <Globe className="w-5 h-5 text-muted-foreground" />
+              <Globe className="w-4 h-4 text-muted-foreground" />
               <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-                <SelectTrigger className="w-[180px] bg-secondary border-border">
+                <SelectTrigger className="w-[160px] h-9 bg-secondary border-border text-sm">
                   <SelectValue placeholder="Select country" />
                 </SelectTrigger>
                 <SelectContent>
@@ -158,8 +157,8 @@ const Index = () => {
             </div>
           </div>
           
-          <div className="grid gap-3">
-            {globalTracks.map((track) => (
+          <div className="grid gap-2">
+            {globalTracks.slice(0, 5).map((track) => (
               <TrackCard
                 key={track.rank}
                 rank={track.rank}
@@ -174,18 +173,18 @@ const Index = () => {
 
         {/* Section 2: By Genre */}
         <section>
-          <div className="mb-6">
-            <h2 className="text-3xl font-bold text-foreground mb-2">Top Tracks by Genre</h2>
-            <p className="text-muted-foreground">Explore what's hot in your favorite genres</p>
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold text-foreground mb-1">Top Tracks by Genre</h2>
+            <p className="text-sm text-muted-foreground">Explore what's hot in your favorite genres</p>
           </div>
 
           <Tabs value={selectedGenre} onValueChange={setSelectedGenre} className="w-full">
-            <TabsList className="bg-secondary mb-6">
+            <TabsList className="bg-secondary mb-4 h-9">
               {genres.map((genre) => (
                 <TabsTrigger
                   key={genre.id}
                   value={genre.id}
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-sm px-3"
                 >
                   {genre.label}
                 </TabsTrigger>
@@ -193,9 +192,9 @@ const Index = () => {
             </TabsList>
 
             <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-4 pb-4">
-                {genreTracks[selectedGenre as keyof typeof genreTracks].map((track, index) => (
-                  <div key={index} className="w-[200px] flex-shrink-0">
+              <div className="flex gap-3 pb-4">
+                {genreTracks[selectedGenre as keyof typeof genreTracks].slice(0, 4).map((track, index) => (
+                  <div key={index} className="w-[160px] flex-shrink-0">
                     <TrackCard
                       title={track.title}
                       artist={track.artist}
@@ -211,20 +210,41 @@ const Index = () => {
 
         {/* Section 3: Trending for You */}
         <section>
-          <div className="mb-6">
-            <h2 className="text-3xl font-bold text-foreground mb-2">Trending for You</h2>
-            <p className="text-muted-foreground">Pre-made playlists based on your listening habits</p>
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold text-foreground mb-1">Trending for You</h2>
+            <p className="text-sm text-muted-foreground">Personalized recommendations</p>
           </div>
 
-          <div className="grid gap-3">
-            {personalizedTracks.map((track, index) => (
-              <TrackCard
-                key={index}
-                title={track.title}
-                artist={track.artist}
-                reason={track.reason}
-              />
-            ))}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Pre-made Playlists */}
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-3">Pre-made Playlists</h3>
+              <div className="grid gap-2">
+                {premadePlaylists.map((track, index) => (
+                  <TrackCard
+                    key={index}
+                    title={track.title}
+                    artist={track.artist}
+                    reason={track.reason}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Popular Albums/Songs of the Day */}
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-3">Popular Today</h3>
+              <div className="grid gap-2">
+                {popularToday.map((track, index) => (
+                  <TrackCard
+                    key={index}
+                    title={track.title}
+                    artist={track.artist}
+                    reason={track.reason}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </section>
       </main>

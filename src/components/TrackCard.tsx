@@ -39,16 +39,16 @@ export const TrackCard = ({
 
   if (layout === "vertical") {
     return (
-      <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-4 group cursor-pointer">
-        <div className="flex flex-col gap-3">
+      <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer">
+        <div className="flex flex-col gap-2">
           <div className="aspect-square bg-muted rounded-md flex items-center justify-center overflow-hidden">
-            <Music className="w-12 h-12 text-muted-foreground" />
+            <Music className="w-10 h-10 text-muted-foreground" />
           </div>
-          <div className="space-y-1">
-            <h4 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+          <div className="space-y-0.5">
+            <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
               {title}
             </h4>
-            <p className="text-sm text-muted-foreground line-clamp-1">{artist}</p>
+            <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>
             {reason && (
               <p className="text-xs text-muted-foreground/80 line-clamp-2 pt-1">
                 <span className="text-primary">Why this?</span> {reason}
@@ -61,23 +61,23 @@ export const TrackCard = ({
   }
 
   return (
-    <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-4 group cursor-pointer">
-      <div className="flex items-center gap-4">
+    <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer">
+      <div className="flex items-center gap-3">
         {showRank && rank && (
-          <div className="flex-shrink-0 w-8 text-center">
-            <span className="text-lg font-bold text-muted-foreground">{rank}</span>
+          <div className="flex-shrink-0 w-6 text-center">
+            <span className="text-base font-bold text-muted-foreground">{rank}</span>
           </div>
         )}
         
-        <div className="w-14 h-14 flex-shrink-0 bg-muted rounded-md flex items-center justify-center overflow-hidden">
-          <Music className="w-8 h-8 text-muted-foreground" />
+        <div className="w-12 h-12 flex-shrink-0 bg-muted rounded-md flex items-center justify-center overflow-hidden">
+          <Music className="w-6 h-6 text-muted-foreground" />
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+          <h4 className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
             {title}
           </h4>
-          <p className="text-sm text-muted-foreground line-clamp-1">{artist}</p>
+          <p className="text-xs text-muted-foreground line-clamp-1">{artist}</p>
           {reason && (
             <p className="text-xs text-muted-foreground/80 line-clamp-1 pt-1">
               <span className="text-primary">Why this?</span> {reason}
@@ -89,7 +89,7 @@ export const TrackCard = ({
           <div className="flex-shrink-0">
             <Badge
               variant="outline"
-              className="gap-1 border-none"
+              className="gap-1 border-none text-xs px-2 py-0.5"
               style={{ backgroundColor: getRankChangeColor(), color: "white" }}
             >
               {getRankChangeIcon()}

@@ -489,32 +489,97 @@ serve(async (req) => {
     console.log('Normalizing dataset features...');
     const { data: normalizedData, mins, maxs } = normalizeFeatures(rawTracks);
 
-    // Step 4: Merge user top tracks with dataset using track_name + artist matching (case-insensitive)
-    // This works better than track_id since the same song has different IDs across albums/releases/regions
-    const datasetMatchMap = new Map<string, NormalizedTrack>();
+    // Step 4: Build THREE lookup maps for better matching:
+    // 1. Full match: track_name + first_artist (existing approach)
+    // 2. Track name only map: for partial artist matching
+    // 3. Artist lookup: to find any track featuring a specific artist
+    
+    const fullMatchMap = new Map<string, NormalizedTrack>();
+    const trackNameMap = new Map<string, NormalizedTrack[]>();
+    const artistTracksMap = new Map<string, NormalizedTrack[]>();
+    
     for (const track of normalizedData) {
-      const key = createMatchKey(track.track_name, track.artists);
-      if (!datasetMatchMap.has(key)) {
-        datasetMatchMap.set(key, track);
+      // 1. Full match key (existing)
+      const fullKey = createMatchKey(track.track_name, track.artists);
+      if (!fullMatchMap.has(fullKey)) {
+        fullMatchMap.set(fullKey, track);
+      }
+      
+      // 2. Track name only
+      const trackNameKey = normalizeForMatch(track.track_name);
+      if (!trackNameMap.has(trackNameKey)) {
+        trackNameMap.set(trackNameKey, []);
+      }
+      trackNameMap.get(trackNameKey)!.push(track);
+      
+      // 3. All artists in this track (split by ; and ,)
+      const artists = track.artists.split(/[;,]/).map(a => normalizeForMatch(a.trim()));
+      for (const artist of artists) {
+        if (!artist) continue;
+        if (!artistTracksMap.has(artist)) {
+          artistTracksMap.set(artist, []);
+        }
+        artistTracksMap.get(artist)!.push(track);
       }
     }
-    console.log(`Built match map with ${datasetMatchMap.size} unique track+artist combinations`);
+    
+    console.log(`Built full match map: ${fullMatchMap.size} entries`);
+    console.log(`Built track name map: ${trackNameMap.size} unique names`);
+    console.log(`Built artist map: ${artistTracksMap.size} unique artists`);
     
     const userTracksWithFeatures: NormalizedTrack[] = [];
     const userTrackIds: string[] = [];
+    const matchedTrackIds = new Set<string>(); // Avoid duplicates
     
     for (const userTrack of userTopTracks) {
       userTrackIds.push(userTrack.id);
       
-      // Get first artist name from Spotify response
-      const artistName = userTrack.artists?.[0]?.name || '';
       const trackName = userTrack.name || '';
-      const matchKey = createMatchKey(trackName, artistName);
+      const userArtists = userTrack.artists?.map((a: any) => a.name) || [];
+      const primaryArtist = userArtists[0] || '';
       
-      const datasetTrack = datasetMatchMap.get(matchKey);
-      if (datasetTrack) {
-        userTracksWithFeatures.push(datasetTrack);
-        console.log(`Matched: "${trackName}" by "${artistName}"`);
+      let matchedTrack: NormalizedTrack | undefined;
+      
+      // Strategy 1: Exact track_name + first_artist match
+      const fullKey = createMatchKey(trackName, primaryArtist);
+      matchedTrack = fullMatchMap.get(fullKey);
+      
+      // Strategy 2: Same track name, any artist matches
+      if (!matchedTrack) {
+        const trackNameKey = normalizeForMatch(trackName);
+        const candidates = trackNameMap.get(trackNameKey) || [];
+        
+        for (const candidate of candidates) {
+          const candidateArtistsNorm = normalizeForMatch(candidate.artists);
+          for (const userArtist of userArtists) {
+            if (candidateArtistsNorm.includes(normalizeForMatch(userArtist))) {
+              matchedTrack = candidate;
+              break;
+            }
+          }
+          if (matchedTrack) break;
+        }
+      }
+      
+      // Strategy 3: Find ANY track featuring this artist (fallback for artist discovery)
+      if (!matchedTrack) {
+        for (const userArtist of userArtists) {
+          const artistKey = normalizeForMatch(userArtist);
+          const artistTracks = artistTracksMap.get(artistKey);
+          if (artistTracks && artistTracks.length > 0) {
+            // Pick the most popular track by this artist
+            const sorted = [...artistTracks].sort((a, b) => b.popularity - a.popularity);
+            matchedTrack = sorted[0];
+            console.log(`Artist match: "${userArtist}" found in dataset with track "${matchedTrack.track_name}"`);
+            break;
+          }
+        }
+      }
+      
+      if (matchedTrack && !matchedTrackIds.has(matchedTrack.track_id)) {
+        matchedTrackIds.add(matchedTrack.track_id);
+        userTracksWithFeatures.push(matchedTrack);
+        console.log(`Matched: "${trackName}" by "${primaryArtist}" -> "${matchedTrack.track_name}" (${matchedTrack.track_genre})`);
       }
     }
     

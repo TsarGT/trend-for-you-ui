@@ -13,21 +13,44 @@ const SpotifyCallback = () => {
     const code = searchParams.get('code');
     const error = searchParams.get('error');
 
-    if (error) {
-      setStatus('error');
-      setTimeout(() => navigate('/dashboard'), 2000);
-      return;
-    }
+    const handleAuth = async () => {
+      if (error) {
+        setStatus('error');
+        closeOrRedirect();
+        return;
+      }
 
-    if (code) {
-      handleCallback(code).then((success) => {
+      if (code) {
+        const success = await handleCallback(code);
         setStatus(success ? 'success' : 'error');
-        setTimeout(() => navigate('/dashboard'), 1500);
-      });
-    } else {
-      setStatus('error');
-      setTimeout(() => navigate('/dashboard'), 2000);
-    }
+        
+        // Notify opener window if exists
+        if (window.opener) {
+          try {
+            window.opener.postMessage({ type: 'spotify-auth-complete', success }, window.location.origin);
+          } catch (e) {
+            console.log('Could not communicate with opener');
+          }
+        }
+        
+        setTimeout(closeOrRedirect, 1500);
+      } else {
+        setStatus('error');
+        closeOrRedirect();
+      }
+    };
+
+    const closeOrRedirect = () => {
+      // If opened as popup, close the window
+      if (window.opener) {
+        window.close();
+      } else {
+        // Otherwise redirect to dashboard
+        navigate('/dashboard');
+      }
+    };
+
+    handleAuth();
   }, [searchParams, handleCallback, navigate]);
 
   return (
@@ -41,18 +64,18 @@ const SpotifyCallback = () => {
         )}
         {status === 'success' && (
           <>
-            <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-2xl">✓</span>
+            <div className="w-12 h-12 bg-[#1DB954]/20 rounded-full flex items-center justify-center mx-auto">
+              <span className="text-2xl text-[#1DB954]">✓</span>
             </div>
-            <p className="text-foreground">Connected! Redirecting...</p>
+            <p className="text-foreground">Connected! You can close this window.</p>
           </>
         )}
         {status === 'error' && (
           <>
             <div className="w-12 h-12 bg-destructive/20 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-2xl">✗</span>
+              <span className="text-2xl text-destructive">✗</span>
             </div>
-            <p className="text-foreground">Connection failed. Redirecting...</p>
+            <p className="text-foreground">Connection failed. Please try again.</p>
           </>
         )}
       </div>

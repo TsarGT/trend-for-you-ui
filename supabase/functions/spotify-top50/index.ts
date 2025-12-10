@@ -6,12 +6,29 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Spotify Top 50 playlist IDs by country
+const TOP_50_PLAYLISTS: Record<string, string> = {
+  global: '37i9dQZEVXbMDoHDwVN2tF',
+  us: '37i9dQZEVXbLRQDuF5jeBp',
+  uk: '37i9dQZEVXbLnolsZ8PSNw',
+  germany: '37i9dQZEVXbJiZcmkrIHGU',
+  france: '37i9dQZEVXbIPWwFssbupI',
+  spain: '37i9dQZEVXbNFJfN1Vw8d9',
+  italy: '37i9dQZEVXbIQnj7RRhdSX',
+  brazil: '37i9dQZEVXbMXbN3EUUhlg',
+  japan: '37i9dQZEVXbKXQ4mDTEBXq',
+  russia: '37i9dQZEVXbL8l7ra5vVdB',
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const { country = 'global', access_token: userAccessToken } = body;
+    
     const SPOTIFY_CLIENT_ID = Deno.env.get('SPOTIFY_CLIENT_ID');
     const SPOTIFY_CLIENT_SECRET = Deno.env.get('SPOTIFY_CLIENT_SECRET');
 
@@ -19,32 +36,69 @@ serve(async (req) => {
       throw new Error('Spotify credentials not configured');
     }
 
-    console.log('Fetching client credentials token...');
+    console.log(`Fetching Top 50 for country: ${country}, has user token: ${!!userAccessToken}`);
     
-    // Get client credentials token
-    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': 'Basic ' + btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`),
-      },
-      body: 'grant_type=client_credentials',
-    });
+    // Use user token if available, otherwise get client credentials
+    let accessToken = userAccessToken;
+    
+    if (!accessToken) {
+      const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`),
+        },
+        body: 'grant_type=client_credentials',
+      });
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('Token error:', errorText);
-      throw new Error('Failed to get access token');
+      if (!tokenResponse.ok) {
+        throw new Error('Failed to get access token');
+      }
+
+      const tokenData = await tokenResponse.json();
+      accessToken = tokenData.access_token;
     }
 
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
+    // Get the playlist ID for the selected country
+    const playlistId = TOP_50_PLAYLISTS[country.toLowerCase()] || TOP_50_PLAYLISTS.global;
+    
+    console.log(`Using playlist ID: ${playlistId}`);
 
-    console.log('Token obtained, fetching new releases...');
+    // Fetch playlist tracks
+    const playlistResponse = await fetch(
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    );
 
-    // Get new releases - this is more reliable
+    if (playlistResponse.ok) {
+      const playlistData = await playlistResponse.json();
+      console.log(`Got ${playlistData.items?.length || 0} tracks from Top 50`);
+
+      const tracks = playlistData.items?.map((item: any, index: number) => ({
+        rank: index + 1,
+        id: item.track?.id,
+        title: item.track?.name,
+        artist: item.track?.artists?.map((a: any) => a.name).join(', '),
+        album: item.track?.album?.name,
+        albumImage: item.track?.album?.images?.[0]?.url,
+        popularity: item.track?.popularity,
+        duration_ms: item.track?.duration_ms,
+      })).filter((t: any) => t.id) || [];
+
+      return new Response(JSON.stringify({ tracks, country, source: 'top50' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log(`Playlist returned ${playlistResponse.status}, using fallback...`);
+    
+    // Fallback to new releases
     const newReleasesResponse = await fetch(
-      'https://api.spotify.com/v1/browse/new-releases?limit=50',
+      'https://api.spotify.com/v1/browse/new-releases?limit=20',
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -53,28 +107,21 @@ serve(async (req) => {
     );
 
     if (!newReleasesResponse.ok) {
-      const errorText = await newReleasesResponse.text();
-      console.error('New releases error:', errorText);
-      throw new Error('Failed to fetch new releases');
+      throw new Error('Failed to fetch music data');
     }
 
     const newReleasesData = await newReleasesResponse.json();
     console.log(`Got ${newReleasesData.albums?.items?.length || 0} new releases`);
-
-    // Get track details for each album (get first track from each)
-    const tracks = [];
     
-    for (let i = 0; i < Math.min(newReleasesData.albums?.items?.length || 0, 20); i++) {
+    const tracks = [];
+    for (let i = 0; i < Math.min(newReleasesData.albums?.items?.length || 0, 10); i++) {
       const album = newReleasesData.albums.items[i];
       if (!album) continue;
       
-      // Get tracks from this album
       const albumTracksResponse = await fetch(
         `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=1`,
         {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
+          headers: { 'Authorization': `Bearer ${accessToken}` },
         }
       );
       
@@ -91,16 +138,12 @@ serve(async (req) => {
             album: album.name,
             albumImage: album.images?.[0]?.url,
             popularity: album.popularity || 0,
-            previewUrl: track.preview_url,
-            externalUrl: track.external_urls?.spotify,
           });
         }
       }
     }
 
-    console.log(`Compiled ${tracks.length} tracks`);
-
-    return new Response(JSON.stringify({ tracks }), {
+    return new Response(JSON.stringify({ tracks, country, source: 'new_releases' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {

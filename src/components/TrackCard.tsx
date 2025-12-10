@@ -11,6 +11,7 @@ interface TrackCardProps {
   layout?: "horizontal" | "vertical";
   showRank?: boolean;
   type?: "Song" | "Album" | "Playlist";
+  albumImage?: string;
 }
 
 export const TrackCard = ({
@@ -22,6 +23,7 @@ export const TrackCard = ({
   layout = "horizontal",
   showRank = false,
   type,
+  albumImage,
 }: TrackCardProps) => {
   const getRankChangeColor = () => {
     if (rankChange === "NEW") return "hsl(var(--rank-new))";
@@ -39,16 +41,31 @@ export const TrackCard = ({
     return null;
   };
 
+  const renderAlbumArt = (size: "small" | "large" = "small") => {
+    const sizeClasses = size === "large" ? "w-10 h-10" : "w-6 h-6";
+    
+    if (albumImage) {
+      return (
+        <img 
+          src={albumImage} 
+          alt={`${title} album art`}
+          className="w-full h-full object-cover"
+        />
+      );
+    }
+    
+    if (type === "Playlist") {
+      return <ListMusic className={`${sizeClasses} text-muted-foreground`} />;
+    }
+    return <Music className={`${sizeClasses} text-muted-foreground`} />;
+  };
+
   if (layout === "vertical") {
     return (
       <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer">
         <div className="flex flex-col gap-2">
           <div className="aspect-square bg-muted rounded-md flex items-center justify-center overflow-hidden">
-            {type === "Playlist" ? (
-              <ListMusic className="w-10 h-10 text-muted-foreground" />
-            ) : (
-              <Music className="w-10 h-10 text-muted-foreground" />
-            )}
+            {renderAlbumArt("large")}
           </div>
           <div className="space-y-0.5">
             <h4 className={`font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors ${type === "Playlist" ? "text-base" : "text-sm"}`}>
@@ -76,11 +93,7 @@ export const TrackCard = ({
         )}
         
         <div className="w-12 h-12 flex-shrink-0 bg-muted rounded-md flex items-center justify-center overflow-hidden">
-          {type === "Playlist" ? (
-            <ListMusic className="w-6 h-6 text-muted-foreground" />
-          ) : (
-            <Music className="w-6 h-6 text-muted-foreground" />
-          )}
+          {renderAlbumArt("small")}
         </div>
 
         <div className="flex-1 min-w-0">

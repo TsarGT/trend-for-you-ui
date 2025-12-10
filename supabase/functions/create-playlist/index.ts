@@ -467,42 +467,139 @@ serve(async (req) => {
       );
     }
 
-    // Step 3: Normalize dataset features
-    console.log('Normalizing features...');
-    const { data: normalizedData, mins, maxs } = normalizeFeatures(rawTracks);
-
-    // Step 4: Merge user top tracks with dataset to get features
+    // Step 3: Get audio features from Spotify API for user's tracks
     const userTrackIds = userTopTracks.map((t: any) => t.id);
-    const datasetTrackMap = new Map(normalizedData.map(t => [t.track_id, t]));
+    console.log('Fetching audio features from Spotify...');
+    const audioFeaturesResponse = await fetchWithAuth(
+      `https://api.spotify.com/v1/audio-features?ids=${userTrackIds.join(',')}`,
+      access_token
+    );
     
-    const userTracksWithFeatures: NormalizedTrack[] = [];
-    for (const userTrack of userTopTracks) {
-      const datasetTrack = datasetTrackMap.get(userTrack.id);
-      if (datasetTrack) {
-        userTracksWithFeatures.push(datasetTrack);
+    if (!audioFeaturesResponse.ok) {
+      console.error('Failed to fetch audio features');
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch audio features from Spotify' }),
+        { status: audioFeaturesResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const audioFeaturesData = await audioFeaturesResponse.json();
+    const audioFeatures = audioFeaturesData.audio_features || [];
+    console.log(`Got audio features for ${audioFeatures.filter((f: any) => f).length} tracks`);
+
+    // Step 4: Get artist genres from Spotify API
+    const artistIds = [...new Set(userTopTracks.flatMap((t: any) => t.artists.map((a: any) => a.id)))];
+    console.log(`Fetching genres for ${artistIds.length} artists...`);
+    
+    // Fetch artists in batches of 50
+    const allArtistGenres: string[] = [];
+    for (let i = 0; i < artistIds.length; i += 50) {
+      const batch = artistIds.slice(i, i + 50);
+      const artistsResponse = await fetchWithAuth(
+        `https://api.spotify.com/v1/artists?ids=${batch.join(',')}`,
+        access_token
+      );
+      if (artistsResponse.ok) {
+        const artistsData = await artistsResponse.json();
+        for (const artist of artistsData.artists || []) {
+          if (artist?.genres) {
+            allArtistGenres.push(...artist.genres);
+          }
+        }
       }
     }
     
-    console.log(`Matched ${userTracksWithFeatures.length} user tracks with dataset`);
+    console.log(`Found ${allArtistGenres.length} artist genre tags`);
 
-    // Step 5: Get unique genres from user's top tracks
-    const userGenres = [...new Set(userTracksWithFeatures.map(t => t.track_genre).filter(g => g))];
-    console.log(`User genres: ${userGenres.join(', ')}`);
-
-    if (userGenres.length === 0) {
-      // Fallback: get genres from artist data
-      console.log('No matching tracks in dataset, using Spotify API genres...');
-      return new Response(
-        JSON.stringify({ error: 'Your top tracks were not found in our database. Try listening to more diverse music!' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Step 5: Map Spotify genres to dataset genres
+    const datasetGenres = [...new Set(rawTracks.map(t => t.track_genre))];
+    console.log(`Dataset has ${datasetGenres.length} unique genres`);
+    
+    // Find matching genres between user's artist genres and dataset genres
+    const matchedGenres: string[] = [];
+    for (const artistGenre of allArtistGenres) {
+      const normalizedArtistGenre = artistGenre.toLowerCase();
+      for (const datasetGenre of datasetGenres) {
+        const normalizedDatasetGenre = datasetGenre.toLowerCase();
+        // Check if artist genre contains or matches dataset genre
+        if (normalizedArtistGenre.includes(normalizedDatasetGenre) || 
+            normalizedDatasetGenre.includes(normalizedArtistGenre) ||
+            normalizedArtistGenre === normalizedDatasetGenre) {
+          if (!matchedGenres.includes(datasetGenre)) {
+            matchedGenres.push(datasetGenre);
+          }
+        }
+      }
+    }
+    
+    console.log(`Matched genres: ${matchedGenres.join(', ')}`);
+    
+    // If no genres matched, use most popular dataset genres as fallback
+    if (matchedGenres.length === 0) {
+      const genreCounts = new Map<string, number>();
+      for (const track of rawTracks) {
+        genreCounts.set(track.track_genre, (genreCounts.get(track.track_genre) || 0) + 1);
+      }
+      const sortedGenres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]);
+      matchedGenres.push(...sortedGenres.slice(0, 5).map(g => g[0]));
+      console.log(`Using fallback genres: ${matchedGenres.join(', ')}`);
     }
 
-    // Step 6: Build KMeans models per genre
-    console.log('Building KMeans clusters per genre...');
-    const genreModels = buildKMeansPerGenre(userGenres, normalizedData, 15, 100);
+    // Step 6: Normalize dataset features
+    console.log('Normalizing features...');
+    const { data: normalizedData, mins, maxs } = normalizeFeatures(rawTracks);
 
-    // Step 7: Get all known track IDs from user's playlists
+    // Step 7: Create normalized user tracks with audio features from Spotify
+    const userTracksWithFeatures: NormalizedTrack[] = [];
+    for (let i = 0; i < userTopTracks.length; i++) {
+      const track = userTopTracks[i];
+      const features = audioFeatures[i];
+      if (!features) continue;
+      
+      // Map Spotify genre to a matched dataset genre (use first artist's genre match or first matched genre)
+      let trackGenre = matchedGenres[0] || 'pop';
+      
+      // Create a track object with Spotify audio features
+      const datasetTrack: DatasetTrack = {
+        track_id: track.id,
+        artists: track.artists.map((a: any) => a.name).join(';'),
+        album_name: track.album?.name || '',
+        track_name: track.name,
+        popularity: track.popularity || 50,
+        duration_ms: track.duration_ms || 0,
+        danceability: features.danceability || 0,
+        energy: features.energy || 0,
+        key: features.key || 0,
+        loudness: features.loudness || 0,
+        mode: features.mode || 0,
+        speechiness: features.speechiness || 0,
+        acousticness: features.acousticness || 0,
+        instrumentalness: features.instrumentalness || 0,
+        liveness: features.liveness || 0,
+        valence: features.valence || 0,
+        tempo: features.tempo || 0,
+        time_signature: features.time_signature || 4,
+        track_genre: trackGenre,
+      };
+      
+      // Normalize using dataset min/max
+      const normTrack = { ...datasetTrack } as NormalizedTrack;
+      for (const col of FEATURE_COLS) {
+        const val = datasetTrack[col as keyof DatasetTrack] as number;
+        const range = maxs[col] - mins[col];
+        (normTrack as any)[`${col}_norm`] = range > 0 ? (val - mins[col]) / range : 0;
+      }
+      
+      userTracksWithFeatures.push(normTrack);
+    }
+    
+    console.log(`Created ${userTracksWithFeatures.length} user tracks with normalized features`);
+
+    // Step 8: Build KMeans models per matched genre
+    console.log('Building KMeans clusters per genre...');
+    const genreModels = buildKMeansPerGenre(matchedGenres, normalizedData, 15, 100);
+
+    // Step 9: Get all known track IDs from user's playlists
     console.log('Fetching user playlist tracks to exclude...');
     const knownTrackIds = await getAllUserPlaylistTrackIds(access_token);
     
@@ -511,21 +608,28 @@ serve(async (req) => {
       knownTrackIds.add(trackId);
     }
 
-    // Step 8: Get recommendations for each user track
+    // Step 10: Get recommendations for each user track
     console.log('Generating recommendations...');
     const allRecommendations = new Map<string, NormalizedTrack>();
     
     for (const userTrack of userTracksWithFeatures) {
-      const recs = getRecommendationsByGenre(userTrack, genreModels, 10);
-      
-      for (const rec of recs) {
-        // Skip if already known
-        if (knownTrackIds.has(rec.track_id)) continue;
+      // Try to get recommendations from matched genres
+      for (const genre of matchedGenres) {
+        const tempTrack = { ...userTrack, track_genre: genre };
+        const recs = getRecommendationsByGenre(tempTrack, genreModels, 5);
         
-        // Add to recommendations if not already there
-        if (!allRecommendations.has(rec.track_id)) {
-          allRecommendations.set(rec.track_id, rec);
+        for (const rec of recs) {
+          // Skip if already known
+          if (knownTrackIds.has(rec.track_id)) continue;
+          
+          // Add to recommendations if not already there
+          if (!allRecommendations.has(rec.track_id)) {
+            allRecommendations.set(rec.track_id, rec);
+          }
         }
+        
+        // Stop if we have enough recommendations
+        if (allRecommendations.size >= num_tracks * 2) break;
       }
     }
 
@@ -560,7 +664,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           name: finalPlaylistName,
-          description: `ML-based recommendations from genres: ${userGenres.slice(0, 5).join(', ')} - Created by TrendTracks`,
+          description: `ML-based recommendations from genres: ${matchedGenres.slice(0, 5).join(', ')} - Created by TrendTracks`,
           public: false
         })
       }
@@ -604,7 +708,7 @@ serve(async (req) => {
         playlist_id: newPlaylist.id,
         playlist_url: newPlaylist.external_urls?.spotify,
         tracks_added: trackUris.length,
-        genres_used: userGenres.slice(0, 5),
+        genres_used: matchedGenres.slice(0, 5),
         recommendations: sortedRecommendations.slice(0, 10).map(t => ({
           id: t.track_id,
           name: t.track_name,

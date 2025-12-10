@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 // Dataset URL - hardcoded for edge function context
-const DATASET_URL = 'https://120fcb9f-fc72-47a4-8533-a7a3545ec8ce.lovableproject.com/data/dataset.csv';
+const DATASET_URL = 'https://wpczgwxsriezaubncuom.lovableproject.com/data/dataset.csv';
 
 interface DatasetTrack {
   track_id: string;

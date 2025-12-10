@@ -32,10 +32,18 @@ interface Track {
   tempo: number;
 }
 
-// Parse CSV dataset
+// Parse CSV dataset - handles CSV with index column
 function parseCSV(csvText: string): Track[] {
   const lines = csvText.split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  if (lines.length === 0) {
+    console.log('CSV is empty');
+    return [];
+  }
+  
+  // Parse headers - handle potential index column (empty first header)
+  let headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  console.log(`CSV headers: ${headers.slice(0, 5).join(', ')}...`);
+  
   const tracks: Track[] = [];
   
   for (let i = 1; i < lines.length; i++) {
@@ -60,6 +68,7 @@ function parseCSV(csvText: string): Track[] {
     
     const track: any = {};
     headers.forEach((header, idx) => {
+      if (!header) return; // Skip empty header (index column)
       let val = values[idx] || '';
       val = val.replace(/^"|"$/g, '');
       
@@ -76,6 +85,11 @@ function parseCSV(csvText: string): Track[] {
     if (track.track_id && track.track_genre) {
       tracks.push(track as Track);
     }
+  }
+  
+  console.log(`Parsed ${tracks.length} valid tracks from CSV`);
+  if (tracks.length > 0) {
+    console.log(`Sample track: ${tracks[0].track_name} by ${tracks[0].artists}`);
   }
   
   return tracks;
@@ -246,16 +260,21 @@ serve(async (req) => {
     console.log(`Excluding ${excludeTrackIds.size} known tracks`);
 
     // 3. Load and parse the dataset (like Python: pd.read_csv)
-    console.log('Fetching dataset...');
+    console.log('Fetching dataset from:', dataset_url);
     const datasetResponse = await fetch(dataset_url);
+    console.log('Dataset response status:', datasetResponse.status);
+    
     if (!datasetResponse.ok) {
+      const errorText = await datasetResponse.text();
+      console.error('Dataset fetch failed:', errorText.substring(0, 200));
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch dataset' }),
+        JSON.stringify({ error: 'Failed to fetch dataset', details: `Status: ${datasetResponse.status}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     const csvText = await datasetResponse.text();
+    console.log(`CSV text length: ${csvText.length}, first 100 chars: ${csvText.substring(0, 100)}`);
     const datasetTracks = parseCSV(csvText);
     console.log(`Loaded ${datasetTracks.length} tracks from dataset`);
 

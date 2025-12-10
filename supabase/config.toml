@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.spotify-top50]
 verify_jwt = false
+
+[functions.spotify-genre]
+verify_jwt = false

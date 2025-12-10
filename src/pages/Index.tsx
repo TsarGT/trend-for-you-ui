@@ -31,7 +31,9 @@ const Index = () => {
   const [selectedGenre, setSelectedGenre] = useState("pop");
   const [selectedCountry, setSelectedCountry] = useState("global");
   const [globalTracks, setGlobalTracks] = useState<Top50Track[]>([]);
+  const [genreTracks, setGenreTracks] = useState<Top50Track[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenreLoading, setIsGenreLoading] = useState(true);
   const [dataSource, setDataSource] = useState<string>("");
   const { isConnected, connect, isLoading: spotifyLoading, accessToken } = useSpotify();
 
@@ -70,44 +72,36 @@ const Index = () => {
     fetchTop50();
   }, [selectedCountry, isConnected, accessToken]);
 
-  // Mock data for Genre tracks (can be replaced with real data later)
-  const genreTracks = {
-    pop: [
-      { title: "Pop Sensation", artist: "Chart Toppers" },
-      { title: "Summer Vibes", artist: "Beach Boys Revival" },
-      { title: "Dance Floor", artist: "Party People" },
-      { title: "Sweet Melody", artist: "Pop Princess" },
-      { title: "Radio Hit", artist: "Mainstream Masters" },
-    ],
-    hiphop: [
-      { title: "Street Chronicles", artist: "Urban Poets" },
-      { title: "Boom Bap Classic", artist: "Old School Crew" },
-      { title: "Trap King", artist: "Metro Boomin'" },
-      { title: "Lyrical Flow", artist: "Wordsmith" },
-      { title: "City Nights", artist: "Downtown Legends" },
-    ],
-    rock: [
-      { title: "Thunder Road", artist: "Rock Legends" },
-      { title: "Electric Guitar", artist: "Shred Masters" },
-      { title: "Rebel Anthem", artist: "Wild Hearts" },
-      { title: "Power Ballad", artist: "Arena Kings" },
-      { title: "Heavy Riffs", artist: "Metal Gods" },
-    ],
-    rap: [
-      { title: "Bars on Bars", artist: "Lyric Master" },
-      { title: "Street Philosophy", artist: "Conscious Crew" },
-      { title: "Flex Mode", artist: "Trap Lords" },
-      { title: "Real Talk", artist: "Truth Tellers" },
-      { title: "Underground Classic", artist: "Indie Rappers" },
-    ],
-    rnb: [
-      { title: "Smooth Groove", artist: "Soul Singers" },
-      { title: "Late Night Vibes", artist: "R&B Collective" },
-      { title: "Love Notes", artist: "Velvet Voices" },
-      { title: "Rhythm & Blues", artist: "Classic Soul" },
-      { title: "Modern Romance", artist: "New Wave R&B" },
-    ],
-  };
+  // Fetch genre tracks when genre changes
+  useEffect(() => {
+    const fetchGenreTracks = async () => {
+      try {
+        setIsGenreLoading(true);
+        
+        const { data, error } = await supabase.functions.invoke('spotify-genre', {
+          body: { 
+            genre: selectedGenre,
+            access_token: accessToken || null
+          }
+        });
+        
+        if (error) {
+          console.error('Error fetching genre tracks:', error);
+          return;
+        }
+        
+        if (data?.tracks) {
+          setGenreTracks(data.tracks);
+        }
+      } catch (err) {
+        console.error('Failed to fetch genre tracks:', err);
+      } finally {
+        setIsGenreLoading(false);
+      }
+    };
+
+    fetchGenreTracks();
+  }, [selectedGenre, accessToken]);
 
   // Mock data for Pre-made Playlists
   const premadePlaylists = [
@@ -231,20 +225,27 @@ const Index = () => {
               ))}
             </TabsList>
 
-            <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-3 pb-4">
-                {genreTracks[selectedGenre as keyof typeof genreTracks].slice(0, 4).map((track, index) => (
-                  <div key={index} className="w-[160px] flex-shrink-0">
-                    <TrackCard
-                      title={track.title}
-                      artist={track.artist}
-                      layout="vertical"
-                    />
-                  </div>
-                ))}
+            {isGenreLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            ) : (
+              <ScrollArea className="w-full whitespace-nowrap">
+                <div className="flex gap-3 pb-4">
+                  {genreTracks.slice(0, 6).map((track, index) => (
+                    <div key={track.id || index} className="w-[160px] flex-shrink-0">
+                      <TrackCard
+                        title={track.title}
+                        artist={track.artist}
+                        albumImage={track.albumImage}
+                        layout="vertical"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            )}
           </Tabs>
         </section>
 

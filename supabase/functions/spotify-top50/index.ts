@@ -20,6 +20,20 @@ const TOP_50_PLAYLISTS: Record<string, string> = {
   russia: '37i9dQZEVXbL8l7ra5vVdB',
 };
 
+// Country display names for logging
+const COUNTRY_NAMES: Record<string, string> = {
+  global: 'Global',
+  us: 'USA',
+  uk: 'UK',
+  germany: 'Germany',
+  france: 'France',
+  spain: 'Spain',
+  italy: 'Italy',
+  brazil: 'Brazil',
+  japan: 'Japan',
+  russia: 'Russia',
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -29,8 +43,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { country = 'global', access_token: userAccessToken } = body;
     
-    const playlistId = TOP_50_PLAYLISTS[country.toLowerCase()] || TOP_50_PLAYLISTS.global;
-    console.log(`Request - country: ${country}, playlistId: ${playlistId}, hasToken: ${!!userAccessToken}`);
+    console.log(`Request received - country: ${country}, has user token: ${!!userAccessToken}`);
     
     const SPOTIFY_CLIENT_ID = Deno.env.get('SPOTIFY_CLIENT_ID');
     const SPOTIFY_CLIENT_SECRET = Deno.env.get('SPOTIFY_CLIENT_SECRET');
@@ -39,19 +52,28 @@ serve(async (req) => {
       throw new Error('Spotify credentials not configured');
     }
 
-    // Try with user token first - direct playlist fetch
+    // Get the playlist ID for the selected country
+    const playlistId = TOP_50_PLAYLISTS[country.toLowerCase()] || TOP_50_PLAYLISTS.global;
+    const countryName = COUNTRY_NAMES[country.toLowerCase()] || 'Global';
+
+    // If we have a user token, fetch the playlist directly
     if (userAccessToken) {
+      console.log(`Fetching Top 50 ${countryName} (playlist: ${playlistId}) with user token...`);
+      
       try {
+        // First verify the token works by getting user profile
         const profileResponse = await fetch('https://api.spotify.com/v1/me', {
           headers: { 'Authorization': `Bearer ${userAccessToken}` },
         });
         
-        if (profileResponse.ok) {
+        if (!profileResponse.ok) {
+          console.error('Token invalid, status:', profileResponse.status);
+        } else {
           const profile = await profileResponse.json();
           const market = profile.country || 'US';
-          console.log(`User market: ${market}, fetching playlist ${playlistId} directly`);
+          console.log(`User market: ${market}`);
           
-          // Direct fetch using predefined playlist ID
+          // Fetch tracks directly from the correct playlist ID
           const tracksResponse = await fetch(
             `https://api.spotify.com/v1/playlists/${playlistId}/tracks?market=${market}&limit=50`,
             {
@@ -61,7 +83,7 @@ serve(async (req) => {
           
           if (tracksResponse.ok) {
             const tracksData = await tracksResponse.json();
-            console.log(`SUCCESS! Got ${tracksData.items?.length || 0} tracks from Top 50`);
+            console.log(`SUCCESS! Got ${tracksData.items?.length || 0} tracks from Top 50 ${countryName}`);
             
             const tracks = tracksData.items?.map((item: any, index: number) => ({
               rank: index + 1,
@@ -76,22 +98,22 @@ serve(async (req) => {
             return new Response(JSON.stringify({ 
               tracks, 
               country, 
-              source: 'top50',
-              playlist: `Top 50 - ${country}`
+              source: 'top50', 
+              playlist: `Top 50 - ${countryName}` 
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             });
           } else {
-            console.error(`Playlist fetch failed: ${tracksResponse.status}`);
+            console.error('Failed to fetch playlist tracks:', tracksResponse.status);
           }
         }
       } catch (fetchError: any) {
-        console.error(`User token fetch error: ${fetchError.message}`);
+        console.error(`Fetch error: ${fetchError.message}`);
       }
     }
     
-    // Fallback: client credentials + new releases
-    console.log('Falling back to client credentials...');
+    // Fallback: Get client credentials token and fetch the playlist
+    console.log('Getting client credentials token for fallback...');
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -108,6 +130,41 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json();
     const clientToken = tokenData.access_token;
 
+    // Try to fetch the Top 50 playlist with client credentials
+    console.log(`Fetching Top 50 ${countryName} with client credentials...`);
+    const playlistResponse = await fetch(
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`,
+      {
+        headers: { 'Authorization': `Bearer ${clientToken}` },
+      }
+    );
+
+    if (playlistResponse.ok) {
+      const playlistData = await playlistResponse.json();
+      console.log(`SUCCESS! Got ${playlistData.items?.length || 0} tracks from Top 50 ${countryName} (client credentials)`);
+      
+      const tracks = playlistData.items?.map((item: any, index: number) => ({
+        rank: index + 1,
+        id: item.track?.id,
+        title: item.track?.name,
+        artist: item.track?.artists?.map((a: any) => a.name).join(', '),
+        album: item.track?.album?.name,
+        albumImage: item.track?.album?.images?.[0]?.url,
+        popularity: item.track?.popularity,
+      })).filter((t: any) => t.id) || [];
+
+      return new Response(JSON.stringify({ 
+        tracks, 
+        country, 
+        source: 'top50',
+        playlist: `Top 50 - ${countryName}`
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Final fallback: Get new releases
+    console.log('Playlist fetch failed, fetching new releases as final fallback...');
     const newReleasesResponse = await fetch(
       `https://api.spotify.com/v1/browse/new-releases?limit=20`,
       {

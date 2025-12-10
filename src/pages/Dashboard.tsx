@@ -56,7 +56,8 @@ const Dashboard = () => {
         body: { 
           access_token: accessToken,
           playlist_name: `TrendTracks For You - ${new Date().toLocaleDateString()}`,
-          num_tracks: 30
+          num_tracks: 30,
+          dataset_url: `${window.location.origin}/data/dataset.csv`
         }
       });
 

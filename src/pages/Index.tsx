@@ -10,8 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Globe, Loader2 } from "lucide-react";
+import { Globe, Loader2, Music } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { useSpotify } from "@/hooks/useSpotify";
 
 interface Top50Track {
   rank: number;
@@ -30,6 +32,8 @@ const Index = () => {
   const [selectedCountry, setSelectedCountry] = useState("global");
   const [globalTracks, setGlobalTracks] = useState<Top50Track[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<string>("");
+  const { isConnected, connect, isLoading: spotifyLoading } = useSpotify();
 
   useEffect(() => {
     const fetchTop50 = async () => {
@@ -55,6 +59,7 @@ const Index = () => {
         
         if (data?.tracks) {
           setGlobalTracks(data.tracks);
+          setDataSource(data.source || 'unknown');
         }
       } catch (err) {
         console.error('Failed to fetch Top 50:', err);
@@ -64,7 +69,7 @@ const Index = () => {
     };
 
     fetchTop50();
-  }, [selectedCountry]);
+  }, [selectedCountry, isConnected]);
 
   // Mock data for Genre tracks (can be replaced with real data later)
   const genreTracks = {
@@ -186,6 +191,27 @@ const Index = () => {
               </Select>
             </div>
           </div>
+
+          {/* Login prompt when not showing real Top 50 */}
+          {!isConnected && dataSource === 'new_releases' && !isLoading && (
+            <div className="mb-4 p-4 bg-secondary/50 rounded-lg border border-border flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Music className="w-5 h-5 text-primary" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Log in with Spotify to see the real Top 50 charts</p>
+                  <p className="text-xs text-muted-foreground">Currently showing new releases</p>
+                </div>
+              </div>
+              <Button 
+                onClick={connect} 
+                disabled={spotifyLoading}
+                className="bg-primary hover:bg-primary/90"
+                size="sm"
+              >
+                {spotifyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Log in with Spotify"}
+              </Button>
+            </div>
+          )}
           
           {isLoading ? (
             <div className="flex items-center justify-center py-12">

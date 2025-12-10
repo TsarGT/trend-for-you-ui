@@ -29,7 +29,8 @@ serve(async (req) => {
     );
 
     if (!topTracksResponse.ok) {
-      console.error('Failed to fetch top tracks:', await topTracksResponse.text());
+      const errorText = await topTracksResponse.text();
+      console.error('Failed to fetch top tracks:', errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch your top tracks from Spotify' }),
         { status: topTracksResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -47,144 +48,103 @@ serve(async (req) => {
       );
     }
 
-    // 2. Get user's top artists for better recommendations
-    const topArtistsResponse = await fetch(
-      'https://api.spotify.com/v1/me/top/artists?limit=20&time_range=medium_term',
-      { headers: { 'Authorization': `Bearer ${access_token}` } }
-    );
-    
-    const topArtistsData = topArtistsResponse.ok ? await topArtistsResponse.json() : { items: [] };
-    const topArtists = topArtistsData.items || [];
-    console.log(`Found ${topArtists.length} top artists`);
-
-    // 3. Collect track IDs to exclude (user's existing playlists)
+    // 2. Collect track IDs to exclude
     const excludeTrackIds = new Set<string>(userTopTracks.map((t: any) => t.id));
-    
-    try {
-      const playlistsResponse = await fetch(
-        'https://api.spotify.com/v1/me/playlists?limit=50',
-        { headers: { 'Authorization': `Bearer ${access_token}` } }
-      );
-      
-      if (playlistsResponse.ok) {
-        const playlistsData = await playlistsResponse.json();
-        const userProfile = await fetch('https://api.spotify.com/v1/me', {
-          headers: { 'Authorization': `Bearer ${access_token}` }
-        }).then(r => r.json());
-        
-        for (const playlist of (playlistsData.items || []).slice(0, 10)) {
-          if (playlist.owner?.id === userProfile.id) {
-            try {
-              const tracksResponse = await fetch(
-                `https://api.spotify.com/v1/playlists/${playlist.id}/tracks?limit=100&fields=items(track(id))`,
-                { headers: { 'Authorization': `Bearer ${access_token}` } }
-              );
-              if (tracksResponse.ok) {
-                const tracksData = await tracksResponse.json();
-                for (const item of tracksData.items || []) {
-                  if (item.track?.id) excludeTrackIds.add(item.track.id);
-                }
-              }
-            } catch (e) { /* skip */ }
-          }
-        }
-      }
-    } catch (e) {
-      console.log('Could not fetch user playlists, continuing');
-    }
-    
-    console.log(`Excluding ${excludeTrackIds.size} known tracks`);
 
-    // 4. Use Spotify Recommendations API with user's top tracks and artists as seeds
-    const seedTracks = userTopTracks.slice(0, 3).map((t: any) => t.id);
-    const seedArtists = topArtists.slice(0, 2).map((a: any) => a.id);
-    
-    console.log(`Using ${seedTracks.length} seed tracks and ${seedArtists.length} seed artists`);
-
+    // 3. Get recommendations using simple direct calls
     const allRecommendations: any[] = [];
     
-    // Make multiple recommendation requests with different seeds for variety
-    // Spotify requires 1-5 total seeds (tracks + artists + genres combined)
-    const seedBatches: string[][] = [];
-    
-    // Batch 1: Mix of top tracks and artists
-    if (seedTracks.length >= 2 && seedArtists.length >= 1) {
-      seedBatches.push([...seedTracks.slice(0, 2), ...seedArtists.slice(0, 1).map((id: string) => `artist:${id}`)]);
-    }
-    
-    // Batch 2: Different top tracks
-    if (userTopTracks.length >= 5) {
-      seedBatches.push(userTopTracks.slice(3, 8).map((t: any) => t.id).slice(0, 5));
-    }
-    
-    // Batch 3: More artists
-    if (topArtists.length >= 5) {
-      seedBatches.push(topArtists.slice(0, 5).map((a: any) => a.id).map((id: string) => `artist:${id}`));
-    }
-    
-    // Batch 4: Even more tracks
-    if (userTopTracks.length >= 15) {
-      seedBatches.push(userTopTracks.slice(10, 15).map((t: any) => t.id));
-    }
+    // Use first 5 top tracks as seeds (Spotify allows max 5 seeds total)
+    const seedTrackIds = userTopTracks.slice(0, 5).map((t: any) => t.id);
+    console.log('Seed track IDs:', seedTrackIds.join(','));
 
-    for (let batchIdx = 0; batchIdx < seedBatches.length; batchIdx++) {
-      const batch = seedBatches[batchIdx];
-      const trackSeeds = batch.filter(s => !s.startsWith('artist:')).slice(0, 5);
-      const artistSeeds = batch.filter(s => s.startsWith('artist:')).map(s => s.replace('artist:', '')).slice(0, 5);
+    // Make recommendation request
+    const recsUrl = `https://api.spotify.com/v1/recommendations?limit=100&seed_tracks=${seedTrackIds.join(',')}`;
+    console.log('Fetching recommendations from:', recsUrl);
+    
+    const recsResponse = await fetch(recsUrl, {
+      headers: { 'Authorization': `Bearer ${access_token}` }
+    });
+
+    console.log('Recommendations response status:', recsResponse.status);
+
+    if (recsResponse.ok) {
+      const recsData = await recsResponse.json();
+      console.log(`Got ${recsData.tracks?.length || 0} tracks from recommendations API`);
       
-      // Ensure we have valid seeds and don't exceed 5 total
-      const totalSeeds = trackSeeds.length + artistSeeds.length;
-      if (totalSeeds === 0 || totalSeeds > 5) continue;
-
-      const params = new URLSearchParams({ limit: '50' });
-      if (trackSeeds.length > 0) params.set('seed_tracks', trackSeeds.join(','));
-      if (artistSeeds.length > 0) params.set('seed_artists', artistSeeds.join(','));
-
-      console.log(`Batch ${batchIdx + 1}: ${trackSeeds.length} track seeds, ${artistSeeds.length} artist seeds`);
-
-      try {
-        const recsResponse = await fetch(
-          `https://api.spotify.com/v1/recommendations?${params}`,
-          { headers: { 'Authorization': `Bearer ${access_token}` } }
-        );
-
-        if (recsResponse.ok) {
-          const recsData = await recsResponse.json();
-          for (const track of recsData.tracks || []) {
+      for (const track of recsData.tracks || []) {
+        if (!excludeTrackIds.has(track.id)) {
+          allRecommendations.push(track);
+          excludeTrackIds.add(track.id);
+        }
+      }
+    } else {
+      const errorText = await recsResponse.text();
+      console.error('Recommendations API error:', recsResponse.status, errorText);
+      
+      // Try with fewer seeds
+      if (seedTrackIds.length > 1) {
+        console.log('Retrying with single seed...');
+        const fallbackUrl = `https://api.spotify.com/v1/recommendations?limit=100&seed_tracks=${seedTrackIds[0]}`;
+        const fallbackResponse = await fetch(fallbackUrl, {
+          headers: { 'Authorization': `Bearer ${access_token}` }
+        });
+        
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          console.log(`Fallback got ${fallbackData.tracks?.length || 0} tracks`);
+          for (const track of fallbackData.tracks || []) {
             if (!excludeTrackIds.has(track.id)) {
               allRecommendations.push(track);
               excludeTrackIds.add(track.id);
             }
           }
-          console.log(`Got ${recsData.tracks?.length || 0} recommendations, ${allRecommendations.length} total unique`);
         } else {
-          const errorText = await recsResponse.text();
-          console.log(`Recommendations batch ${batchIdx + 1} failed (${recsResponse.status}):`, errorText);
+          console.error('Fallback also failed:', await fallbackResponse.text());
         }
-      } catch (e) {
-        console.log('Error fetching recommendations:', e);
       }
-      
-      // Stop if we have enough
-      if (allRecommendations.length >= num_tracks * 2) break;
+    }
+
+    // If we still don't have enough, try with different seeds
+    if (allRecommendations.length < num_tracks && userTopTracks.length > 5) {
+      const moreSeedIds = userTopTracks.slice(5, 10).map((t: any) => t.id);
+      if (moreSeedIds.length > 0) {
+        console.log('Fetching more recommendations with different seeds...');
+        const moreUrl = `https://api.spotify.com/v1/recommendations?limit=100&seed_tracks=${moreSeedIds.join(',')}`;
+        const moreResponse = await fetch(moreUrl, {
+          headers: { 'Authorization': `Bearer ${access_token}` }
+        });
+        
+        if (moreResponse.ok) {
+          const moreData = await moreResponse.json();
+          for (const track of moreData.tracks || []) {
+            if (!excludeTrackIds.has(track.id)) {
+              allRecommendations.push(track);
+              excludeTrackIds.add(track.id);
+            }
+          }
+          console.log(`Now have ${allRecommendations.length} total recommendations`);
+        }
+      }
     }
 
     console.log(`Total unique recommendations: ${allRecommendations.length}`);
 
-    // 5. Select final tracks
+    // 4. Select final tracks
     const finalTracks = allRecommendations.slice(0, num_tracks);
 
     if (finalTracks.length === 0) {
       return new Response(
         JSON.stringify({ 
           error: 'Could not generate recommendations',
-          message: 'Spotify could not find enough recommendations. Try listening to more varied music!'
+          message: 'Spotify returned no recommendations. This can happen with very niche music tastes.',
+          debug: { seedTracks: seedTrackIds }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 6. Create playlist
+    // 5. Create playlist
     const userResponse = await fetch('https://api.spotify.com/v1/me', {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
@@ -218,7 +178,7 @@ serve(async (req) => {
     const newPlaylist = await createPlaylistResponse.json();
     console.log(`Created playlist: ${newPlaylist.id}`);
 
-    // 7. Add tracks to playlist
+    // 6. Add tracks to playlist
     const trackUris = finalTracks.map((t: any) => `spotify:track:${t.id}`);
     
     for (let i = 0; i < trackUris.length; i += 100) {

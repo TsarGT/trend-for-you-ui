@@ -41,7 +41,7 @@ serve(async (req) => {
     // Get the playlist ID for the selected country
     const playlistId = TOP_50_PLAYLISTS[country.toLowerCase()] || TOP_50_PLAYLISTS.global;
 
-    // If we have a user token, try to access the playlist via featured playlists
+    // If we have a user token, try multiple approaches to get charts
     if (userAccessToken) {
       console.log(`Trying to get Top 50 for country: ${country} with user token...`);
       
@@ -58,30 +58,44 @@ serve(async (req) => {
           const market = profile.country || 'US';
           console.log(`User market: ${market}`);
           
-          // Try to find Top 50 via featured playlists first
-          const featuredResponse = await fetch(
-            `https://api.spotify.com/v1/browse/featured-playlists?country=${market}&limit=50`,
+          // Try searching for Top 50 playlists
+          const countryNames: Record<string, string> = {
+            'global': 'Global',
+            'us': 'USA',
+            'uk': 'UK',
+            'germany': 'Germany',
+            'france': 'France',
+            'spain': 'Spain',
+            'italy': 'Italy',
+            'brazil': 'Brazil',
+            'japan': 'Japan',
+            'russia': 'Russia',
+          };
+          const countryName = countryNames[country.toLowerCase()] || 'Global';
+          
+          const searchQuery = encodeURIComponent(`Top 50 ${countryName}`);
+          const searchResponse = await fetch(
+            `https://api.spotify.com/v1/search?q=${searchQuery}&type=playlist&limit=10&market=${market}`,
             {
               headers: { 'Authorization': `Bearer ${userAccessToken}` },
             }
           );
           
-          if (featuredResponse.ok) {
-            const featured = await featuredResponse.json();
-            console.log(`Got ${featured.playlists?.items?.length || 0} featured playlists`);
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json();
+            console.log(`Search found ${searchData.playlists?.items?.length || 0} playlists`);
             
-            // Look for Top 50 playlist
-            const top50Playlist = featured.playlists?.items?.find((p: any) => 
-              p.name?.toLowerCase().includes('top 50') || 
-              p.name?.toLowerCase().includes('top hits') ||
-              p.name?.toLowerCase().includes('viral')
+            // Find a playlist that looks like an official chart
+            const chartPlaylist = searchData.playlists?.items?.find((p: any) => 
+              p.owner?.id === 'spotify' && 
+              (p.name?.toLowerCase().includes('top 50') || p.name?.toLowerCase().includes('viral'))
             );
             
-            if (top50Playlist) {
-              console.log(`Found playlist: ${top50Playlist.name} (${top50Playlist.id})`);
+            if (chartPlaylist) {
+              console.log(`Found chart playlist: ${chartPlaylist.name} by ${chartPlaylist.owner?.id}`);
               
               const tracksResponse = await fetch(
-                `https://api.spotify.com/v1/playlists/${top50Playlist.id}/tracks?market=${market}&limit=50`,
+                `https://api.spotify.com/v1/playlists/${chartPlaylist.id}/tracks?market=${market}&limit=50`,
                 {
                   headers: { 'Authorization': `Bearer ${userAccessToken}` },
                 }
@@ -89,6 +103,8 @@ serve(async (req) => {
               
               if (tracksResponse.ok) {
                 const tracksData = await tracksResponse.json();
+                console.log(`SUCCESS! Got ${tracksData.items?.length || 0} tracks from ${chartPlaylist.name}`);
+                
                 const tracks = tracksData.items?.map((item: any, index: number) => ({
                   rank: index + 1,
                   id: item.track?.id,
@@ -102,51 +118,23 @@ serve(async (req) => {
                 return new Response(JSON.stringify({ 
                   tracks, 
                   country, 
-                  source: 'featured', 
-                  playlist: top50Playlist.name 
+                  source: 'top50', 
+                  playlist: chartPlaylist.name 
                 }), {
                   headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                 });
               }
+            } else {
+              console.log('No official Spotify chart playlist found in search results');
             }
-          }
-          
-          // Fallback: Try direct playlist access with the hardcoded ID
-          console.log(`Trying direct playlist ${playlistId}...`);
-          const playlistResponse = await fetch(
-            `https://api.spotify.com/v1/playlists/${playlistId}?market=${market}`,
-            {
-              headers: { 'Authorization': `Bearer ${userAccessToken}` },
-            }
-          );
-
-          if (playlistResponse.ok) {
-            const playlistData = await playlistResponse.json();
-            console.log(`SUCCESS! Got playlist: ${playlistData.name}`);
-
-            const tracks = playlistData.tracks?.items?.map((item: any, index: number) => ({
-              rank: index + 1,
-              id: item.track?.id,
-              title: item.track?.name,
-              artist: item.track?.artists?.map((a: any) => a.name).join(', '),
-              album: item.track?.album?.name,
-              albumImage: item.track?.album?.images?.[0]?.url,
-              popularity: item.track?.popularity,
-            })).filter((t: any) => t.id) || [];
-
-            return new Response(JSON.stringify({ tracks, country, source: 'top50', playlist: playlistData.name }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            });
-          } else {
-            console.error(`Direct playlist error: ${playlistResponse.status}`);
           }
         }
       } catch (fetchError: any) {
         console.error(`Fetch error: ${fetchError.message}`);
       }
     }
-
-    // Fallback: Get client credentials token
+    
+    // Fallback: Get client credentials token and fetch new releases
     console.log('Getting client credentials token for fallback...');
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',

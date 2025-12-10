@@ -8,6 +8,30 @@ const corsHeaders = {
 // Dataset URL - hardcoded for edge function context
 const DATASET_URL = 'https://120fcb9f-fc72-47a4-8533-a7a3545ec8ce.lovableproject.com/data/dataset.csv';
 
+// Pre-defined seed tracks that are confirmed to be in the dataset (FOR TESTING ONLY)
+const SEED_TRACKS = [
+  { track_id: "6dGnYIeXmHdcikdzNNDMm2", track_name: "Here Comes The Sun - Remastered 2009", artists: "The Beatles", track_genre: "psych-rock" },
+  { track_id: "6GG73Jik4jUlQCkKg9JuGO", track_name: "The Middle", artists: "Jimmy Eat World", track_genre: "punk-rock" },
+  { track_id: "7B3z0ySL9Rr0XvZEAjWZzM", track_name: "Sofia", artists: "Clairo", track_genre: "indie-pop" },
+  { track_id: "4EchqUKQ3qAQuRNKmeIpnf", track_name: "The Kids Aren't Alright", artists: "The Offspring", track_genre: "punk-rock" },
+  { track_id: "2IVsRhKrx8hlQBOWy4qebo", track_name: "Mr Loverman", artists: "Ricky Montgomery", track_genre: "indie-pop" },
+  { track_id: "4qbEaaJ29p32GI8EWQmm6R", track_name: "dumb dumb", artists: "mazie", track_genre: "indie-pop" },
+  { track_id: "7DcJ6fEBb7BaKuYKTwiDxK", track_name: "Homage", artists: "Mild High Club", track_genre: "psych-rock" },
+  { track_id: "1i6N76fftMZhijOzFQ5ZtL", track_name: "Psycho Killer - 2005 Remaster", artists: "Talking Heads", track_genre: "punk-rock" },
+  { track_id: "5ln5yQdUywVbf8HhFsOcd6", track_name: "Walls Could Talk", artists: "Halsey", track_genre: "indie-pop" },
+  { track_id: "6mFkJmJqdDVQ1REhVfGgd1", track_name: "Wish You Were Here", artists: "Pink Floyd", track_genre: "psych-rock" },
+  { track_id: "1fJFuvU2ldmeAm5nFIHcPP", track_name: "First Date", artists: "blink-182", track_genre: "punk-rock" },
+  { track_id: "3BQHpFgAp4l80e1XslIjNI", track_name: "Yesterday - Remastered 2009", artists: "The Beatles", track_genre: "psych-rock" },
+  { track_id: "6UFivO2zqqPFPoQYsEMuCc", track_name: "Bags", artists: "Clairo", track_genre: "indie-pop" },
+  { track_id: "3Pzh926pXggbMe2ZpXyMV7", track_name: "Ain't No Rest for the Wicked", artists: "Cage The Elephant", track_genre: "punk-rock" },
+  { track_id: "5jgFfDIR6FR0gvlA56Nakr", track_name: "Blackbird - Remastered 2009", artists: "The Beatles", track_genre: "psych-rock" },
+  { track_id: "2i0AUcEnsDm3dsqLrFWUCq", track_name: "Tonight Tonight", artists: "Hot Chelle Rae", track_genre: "punk-rock" },
+  { track_id: "7CFfqRW50ffULvBv7lfIIg", track_name: "Violent", artists: "carolesdaughter", track_genre: "indie-pop" },
+  { track_id: "3JiaA3hvuKu4Fjf6AWwVMX", track_name: "Difficult", artists: "Gracie Abrams", track_genre: "indie-pop" },
+  { track_id: "7aGyRfJWtLqgJaZoG9lJhE", track_name: "Mad at Disney", artists: "salem ilese", track_genre: "indie-pop" },
+  { track_id: "3FAJ6O0NOHQV8Mc5Ri6ENp", track_name: "Fourth of July", artists: "Sufjan Stevens", track_genre: "psych-rock" },
+];
+
 interface DatasetTrack {
   track_id: string;
   artists: string;
@@ -460,214 +484,34 @@ serve(async (req) => {
     const rawTracks = parseCSV(csvText);
     console.log(`Parsed ${rawTracks.length} tracks from dataset`);
 
-    // Step 2: Get user's top 50 tracks (long_term for better dataset matching)
-    const topTracksResponse = await fetchWithAuth(
-      'https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=long_term',
-      access_token
-    );
+    // Step 2: Use pre-defined seed tracks instead of user's top tracks (FOR TESTING)
+    console.log('Using pre-defined seed playlist (20 tracks from dataset)');
+    const userTopTracks = SEED_TRACKS;
+    const userTrackIds = SEED_TRACKS.map(t => t.track_id);
+    console.log(`Using ${userTopTracks.length} seed tracks`);
 
-    if (!topTracksResponse.ok) {
-      console.error('Failed to fetch top tracks');
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch your top tracks from Spotify' }),
-        { status: topTracksResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const topTracksData = await topTracksResponse.json();
-    const userTopTracks = topTracksData.items || [];
-    console.log(`Found ${userTopTracks.length} user top tracks`);
-
-    if (userTopTracks.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No top tracks found. Listen to more music on Spotify!' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Step 3: Normalize dataset features FIRST
+    // Step 3: Normalize dataset features
     console.log('Normalizing dataset features...');
     const { data: normalizedData, mins, maxs } = normalizeFeatures(rawTracks);
 
-    // Step 4: Build THREE lookup maps for better matching:
-    // 1. Full match: track_name + first_artist (existing approach)
-    // 2. Track name only map: for partial artist matching
-    // 3. Artist lookup: to find any track featuring a specific artist
-    
-    const fullMatchMap = new Map<string, NormalizedTrack>();
-    const trackNameMap = new Map<string, NormalizedTrack[]>();
-    const artistTracksMap = new Map<string, NormalizedTrack[]>();
-    
-    for (const track of normalizedData) {
-      // 1. Full match key (existing)
-      const fullKey = createMatchKey(track.track_name, track.artists);
-      if (!fullMatchMap.has(fullKey)) {
-        fullMatchMap.set(fullKey, track);
-      }
-      
-      // 2. Track name only
-      const trackNameKey = normalizeForMatch(track.track_name);
-      if (!trackNameMap.has(trackNameKey)) {
-        trackNameMap.set(trackNameKey, []);
-      }
-      trackNameMap.get(trackNameKey)!.push(track);
-      
-      // 3. All artists in this track (split by ; and ,)
-      const artists = track.artists.split(/[;,]/).map(a => normalizeForMatch(a.trim()));
-      for (const artist of artists) {
-        if (!artist) continue;
-        if (!artistTracksMap.has(artist)) {
-          artistTracksMap.set(artist, []);
-        }
-        artistTracksMap.get(artist)!.push(track);
-      }
-    }
-    
-    console.log(`Built full match map: ${fullMatchMap.size} entries`);
-    console.log(`Built track name map: ${trackNameMap.size} unique names`);
-    console.log(`Built artist map: ${artistTracksMap.size} unique artists`);
-    
+    // Step 4: Match seed tracks with dataset (they're guaranteed to match by track_id)
     const userTracksWithFeatures: NormalizedTrack[] = [];
-    const userTrackIds: string[] = [];
-    const matchedTrackIds = new Set<string>(); // Avoid duplicates
-    
-    for (const userTrack of userTopTracks) {
-      userTrackIds.push(userTrack.id);
-      
-      const trackName = userTrack.name || '';
-      const userArtists = userTrack.artists?.map((a: any) => a.name) || [];
-      const primaryArtist = userArtists[0] || '';
-      
-      let matchedTrack: NormalizedTrack | undefined;
-      
-      // Strategy 1: Exact track_name + first_artist match
-      const fullKey = createMatchKey(trackName, primaryArtist);
-      matchedTrack = fullMatchMap.get(fullKey);
-      
-      // Strategy 2: Same track name, any artist matches
-      if (!matchedTrack) {
-        const trackNameKey = normalizeForMatch(trackName);
-        const candidates = trackNameMap.get(trackNameKey) || [];
-        
-        for (const candidate of candidates) {
-          const candidateArtistsNorm = normalizeForMatch(candidate.artists);
-          for (const userArtist of userArtists) {
-            if (candidateArtistsNorm.includes(normalizeForMatch(userArtist))) {
-              matchedTrack = candidate;
-              break;
-            }
-          }
-          if (matchedTrack) break;
-        }
-      }
-      
-      // Strategy 3: Find ANY track featuring this artist (fallback for artist discovery)
-      if (!matchedTrack) {
-        for (const userArtist of userArtists) {
-          const artistKey = normalizeForMatch(userArtist);
-          const artistTracks = artistTracksMap.get(artistKey);
-          if (artistTracks && artistTracks.length > 0) {
-            // Pick the most popular track by this artist
-            const sorted = [...artistTracks].sort((a, b) => b.popularity - a.popularity);
-            matchedTrack = sorted[0];
-            console.log(`Artist match: "${userArtist}" found in dataset with track "${matchedTrack.track_name}"`);
-            break;
-          }
-        }
-      }
-      
-      if (matchedTrack && !matchedTrackIds.has(matchedTrack.track_id)) {
-        matchedTrackIds.add(matchedTrack.track_id);
-        userTracksWithFeatures.push(matchedTrack);
-        console.log(`Matched: "${trackName}" by "${primaryArtist}" -> "${matchedTrack.track_name}" (${matchedTrack.track_genre})`);
-      }
-    }
-    
-    console.log(`Matched ${userTracksWithFeatures.length} of ${userTopTracks.length} user tracks with dataset`);
-    
-    // DEBUG: Log sample user tracks that didn't match
-    if (userTracksWithFeatures.length === 0) {
-      console.log('Sample user tracks that did not match:');
-      for (const userTrack of userTopTracks.slice(0, 5)) {
-        const artistName = userTrack.artists?.[0]?.name || '';
-        const trackName = userTrack.name || '';
-        console.log(`  - "${trackName}" by "${artistName}"`);
+
+    for (const seedTrack of SEED_TRACKS) {
+      const datasetTrack = normalizedData.find(t => t.track_id === seedTrack.track_id);
+      if (datasetTrack) {
+        userTracksWithFeatures.push(datasetTrack);
+        console.log(`Matched seed: "${seedTrack.track_name}" by "${seedTrack.artists}" (${seedTrack.track_genre})`);
+      } else {
+        console.log(`WARNING: Seed track not found in dataset: "${seedTrack.track_name}"`);
       }
     }
 
-    // Step 5: Get genres - either from matched tracks OR from Spotify artist data
-    let userGenres: string[] = [];
-    
-    if (userTracksWithFeatures.length > 0) {
-      // Use genres from matched dataset tracks
-      userGenres = [...new Set(userTracksWithFeatures.map(t => t.track_genre).filter(g => g))];
-      console.log(`User genres from dataset matches: ${userGenres.join(', ')}`);
-    }
-    
-    // If no matches or no genres, get genres from Spotify artist data
-    if (userGenres.length === 0) {
-      console.log('No dataset matches, fetching artist genres from Spotify...');
-      
-      const artistIds = [...new Set(userTopTracks.flatMap((t: any) => t.artists.map((a: any) => a.id)))];
-      const allArtistGenres: string[] = [];
-      
-      // Fetch artists in batches of 50
-      for (let i = 0; i < artistIds.length; i += 50) {
-        const batch = artistIds.slice(i, i + 50);
-        const artistsResponse = await fetchWithAuth(
-          `https://api.spotify.com/v1/artists?ids=${batch.join(',')}`,
-          access_token
-        );
-        if (artistsResponse.ok) {
-          const artistsData = await artistsResponse.json();
-          for (const artist of artistsData.artists || []) {
-            if (artist?.genres) {
-              allArtistGenres.push(...artist.genres);
-            }
-          }
-        }
-      }
-      
-      console.log(`Found ${allArtistGenres.length} artist genre tags from Spotify`);
-      
-      // Map Spotify artist genres to dataset genres
-      const datasetGenres = [...new Set(rawTracks.map(t => t.track_genre))];
-      
-      for (const artistGenre of allArtistGenres) {
-        const normalizedArtistGenre = artistGenre.toLowerCase();
-        for (const datasetGenre of datasetGenres) {
-          const normalizedDatasetGenre = datasetGenre.toLowerCase();
-          if (normalizedArtistGenre.includes(normalizedDatasetGenre) || 
-              normalizedDatasetGenre.includes(normalizedArtistGenre) ||
-              normalizedArtistGenre === normalizedDatasetGenre) {
-            if (!userGenres.includes(datasetGenre)) {
-              userGenres.push(datasetGenre);
-            }
-          }
-        }
-      }
-      
-      console.log(`Mapped to dataset genres: ${userGenres.join(', ')}`);
-      
-      // DEBUG: If no genres mapped, log what we had
-      if (userGenres.length === 0) {
-        console.log('No genres mapped. Artist genres from Spotify were:');
-        console.log(allArtistGenres.slice(0, 20).join(', '));
-      }
-    }
+    console.log(`Matched ${userTracksWithFeatures.length} of ${SEED_TRACKS.length} seed tracks with dataset`);
 
-    // If still no genres, use popular fallback genres
-    if (userGenres.length === 0) {
-      const genreCounts = new Map<string, number>();
-      for (const track of rawTracks) {
-        genreCounts.set(track.track_genre, (genreCounts.get(track.track_genre) || 0) + 1);
-      }
-      const sortedGenres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]);
-      userGenres = sortedGenres.slice(0, 5).map(g => g[0]);
-      console.log(`Using fallback popular genres: ${userGenres.join(', ')}`);
-    }
-
-    console.log(`Final genres for recommendations: ${userGenres.join(', ')}`);
+    // Step 5: Get genres from seed tracks
+    let userGenres = [...new Set(SEED_TRACKS.map(t => t.track_genre).filter(g => g))];
+    console.log(`Seed playlist genres: ${userGenres.join(', ')}`);
 
     // Step 6: Build KMeans models per genre (15 clusters, min 100 songs per genre)
     console.log('Building KMeans clusters per genre...');

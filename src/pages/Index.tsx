@@ -33,22 +33,19 @@ const Index = () => {
   const [globalTracks, setGlobalTracks] = useState<Top50Track[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataSource, setDataSource] = useState<string>("");
-  const { isConnected, connect, isLoading: spotifyLoading } = useSpotify();
+  const { isConnected, connect, isLoading: spotifyLoading, accessToken } = useSpotify();
 
   useEffect(() => {
     const fetchTop50 = async () => {
       try {
         setIsLoading(true);
         
-        // Get user's Spotify token if available
-        const storedToken = localStorage.getItem('spotify_access_token');
-        const tokenExpiry = localStorage.getItem('spotify_token_expiry');
-        const hasValidToken = storedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry);
+        console.log('Fetching Top 50 - isConnected:', isConnected, 'hasToken:', !!accessToken);
         
         const { data, error } = await supabase.functions.invoke('spotify-top50', {
           body: { 
             country: selectedCountry,
-            access_token: hasValidToken ? storedToken : undefined
+            access_token: accessToken || null
           }
         });
         
@@ -56,6 +53,8 @@ const Index = () => {
           console.error('Error fetching Top 50:', error);
           return;
         }
+        
+        console.log('Got data from source:', data?.source);
         
         if (data?.tracks) {
           setGlobalTracks(data.tracks);
@@ -69,7 +68,7 @@ const Index = () => {
     };
 
     fetchTop50();
-  }, [selectedCountry, isConnected]);
+  }, [selectedCountry, isConnected, accessToken]);
 
   // Mock data for Genre tracks (can be replaced with real data later)
   const genreTracks = {
@@ -192,27 +191,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Login prompt when not showing real Top 50 */}
-          {!isConnected && dataSource === 'new_releases' && !isLoading && (
-            <div className="mb-4 p-4 bg-secondary/50 rounded-lg border border-border flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Music className="w-5 h-5 text-primary" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Log in with Spotify to see the real Top 50 charts</p>
-                  <p className="text-xs text-muted-foreground">Currently showing new releases</p>
-                </div>
-              </div>
-              <Button 
-                onClick={connect} 
-                disabled={spotifyLoading}
-                className="bg-primary hover:bg-primary/90"
-                size="sm"
-              >
-                {spotifyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Log in with Spotify"}
-              </Button>
-            </div>
-          )}
-          
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />

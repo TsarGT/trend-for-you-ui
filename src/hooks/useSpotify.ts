@@ -196,6 +196,7 @@ export function useSpotify() {
     isConnected,
     isLoading,
     spotifyData,
+    accessToken,
     connect,
     handleCallback,
     fetchData,

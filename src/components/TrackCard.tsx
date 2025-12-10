@@ -1,4 +1,4 @@
-import { Music, TrendingUp, TrendingDown, Sparkles, Disc3, Music2, ListMusic } from "lucide-react";
+import { Music, TrendingUp, TrendingDown, Sparkles, Disc3, Music2, ListMusic, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -12,6 +12,7 @@ interface TrackCardProps {
   showRank?: boolean;
   type?: "Song" | "Album" | "Playlist";
   albumImage?: string;
+  spotifyUrl?: string;
 }
 
 export const TrackCard = ({
@@ -24,6 +25,7 @@ export const TrackCard = ({
   showRank = false,
   type,
   albumImage,
+  spotifyUrl,
 }: TrackCardProps) => {
   const getRankChangeColor = () => {
     if (rankChange === "NEW") return "hsl(var(--rank-new))";
@@ -39,6 +41,12 @@ export const TrackCard = ({
       return rankChange > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />;
     }
     return null;
+  };
+
+  const handleClick = () => {
+    if (spotifyUrl) {
+      window.open(spotifyUrl, '_blank');
+    }
   };
 
   const renderAlbumArt = (size: "small" | "large" = "small") => {
@@ -62,7 +70,10 @@ export const TrackCard = ({
 
   if (layout === "vertical") {
     return (
-      <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer">
+      <Card 
+        className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer"
+        onClick={handleClick}
+      >
         <div className="flex flex-col gap-2">
           <div className="aspect-square bg-muted rounded-md flex items-center justify-center overflow-hidden">
             {renderAlbumArt("large")}
@@ -84,7 +95,10 @@ export const TrackCard = ({
   }
 
   return (
-    <Card className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer">
+    <Card 
+      className="bg-card border-border hover:bg-secondary/50 transition-colors p-3 group cursor-pointer"
+      onClick={handleClick}
+    >
       <div className="flex items-center gap-3">
         {showRank && rank && (
           <div className="flex-shrink-0 w-6 text-center">
@@ -117,6 +131,10 @@ export const TrackCard = ({
             </p>
           )}
         </div>
+
+        {spotifyUrl && (
+          <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        )}
 
         {rankChange && (
           <div className="flex-shrink-0">

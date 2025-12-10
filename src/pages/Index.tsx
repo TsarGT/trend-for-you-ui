@@ -103,22 +103,25 @@ const Index = () => {
     fetchGenreTracks();
   }, [selectedGenre, accessToken]);
 
-  // Mock data for Pre-made Playlists
+  // Curated Spotify playlists with actual links
   const premadePlaylists = [
     {
-      title: "Playlist 1",
+      title: "Today's Top Hits",
       artist: "",
       type: "Playlist" as const,
+      spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
     },
     {
-      title: "Playlist 2",
+      title: "RapCaviar",
       artist: "",
       type: "Playlist" as const,
+      spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd"
     },
     {
-      title: "Playlist 3",
+      title: "All Out 2010s",
       artist: "",
       type: "Playlist" as const,
+      spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX5Ejj0EkURtP"
     },
   ];
 
@@ -261,12 +264,13 @@ const Index = () => {
             <div>
               <h3 className="text-lg font-semibold text-foreground mb-3">Pre-made Playlists</h3>
               <div className="grid gap-2">
-                {premadePlaylists.map((track, index) => (
+                {premadePlaylists.map((playlist, index) => (
                   <TrackCard
                     key={index}
-                    title={track.title}
-                    artist={track.artist}
-                    type={track.type}
+                    title={playlist.title}
+                    artist={playlist.artist}
+                    type={playlist.type}
+                    spotifyUrl={playlist.spotifyUrl}
                   />
                 ))}
               </div>

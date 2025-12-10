@@ -6,39 +6,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Genre seed IDs and search terms for Spotify
-const GENRE_CONFIG: Record<string, { seeds: string[], searchTerms: string[] }> = {
+// Well-maintained community playlists for each genre (high follower counts, regularly updated)
+const GENRE_PLAYLISTS: Record<string, { id: string; name: string; fallbackSearch: string[] }> = {
   pop: { 
-    seeds: ['pop'], 
-    searchTerms: ['top pop hits 2024', 'pop hits', 'best pop songs'] 
+    id: '37i9dQZF1DXcBWIGoYBM5M', // Today's Top Hits (Spotify editorial)
+    name: "Today's Top Hits",
+    fallbackSearch: ['top pop hits 2025', 'pop hits 2025', 'best pop songs 2025']
   },
   hiphop: { 
-    seeds: ['hip-hop'], 
-    searchTerms: ['top hip hop hits 2024', 'hip hop hits', 'best rap songs'] 
+    id: '37i9dQZF1DX0XUsuxWHRQd', // RapCaviar (Spotify editorial)
+    name: 'RapCaviar',
+    fallbackSearch: ['top hip hop hits 2025', 'hip hop hits', 'rap hits 2025']
   },
   rock: { 
-    seeds: ['rock'], 
-    searchTerms: ['top rock hits 2024', 'rock hits', 'best rock songs'] 
+    id: '37i9dQZF1DXcF6B6QPhFDv', // Rock This (Spotify editorial)
+    name: 'Rock This',
+    fallbackSearch: ['top rock hits 2025', 'rock hits', 'best rock songs 2025']
   },
   rap: { 
-    seeds: ['hip-hop', 'rap'], 
-    searchTerms: ['top rap hits 2024', 'rap hits', 'best rap songs'] 
+    id: '7EnIitpBIDp8hbqoaOWfQO', // RAP MUSIC 2025 (user shared)
+    name: 'RAP MUSIC 2025',
+    fallbackSearch: ['top rap hits 2025', 'rap hits', 'best rap songs 2025']
   },
   rnb: { 
-    seeds: ['r-n-b'], 
-    searchTerms: ['top rnb hits 2024', 'r&b hits', 'best rnb songs'] 
+    id: '37i9dQZF1DX4SBhb3fqCJd', // Are & Be (Spotify editorial)
+    name: 'Are & Be',
+    fallbackSearch: ['top rnb hits 2025', 'r&b hits', 'best rnb songs 2025']
   },
   electronic: { 
-    seeds: ['electronic', 'edm'], 
-    searchTerms: ['top edm hits 2024', 'electronic hits', 'best edm songs'] 
+    id: '37i9dQZF1DX4dyzvuaRJ0n', // mint (Spotify editorial)
+    name: 'mint',
+    fallbackSearch: ['top edm hits 2025', 'electronic hits', 'best edm songs 2025']
   },
   latin: { 
-    seeds: ['latin'], 
-    searchTerms: ['top latin hits 2024', 'latin hits', 'reggaeton hits'] 
+    id: '37i9dQZF1DX10zKzsJ2jva', // Viva Latino (Spotify editorial)
+    name: 'Viva Latino',
+    fallbackSearch: ['top latin hits 2025', 'latin hits', 'reggaeton hits 2025']
   },
   country: { 
-    seeds: ['country'], 
-    searchTerms: ['top country hits 2024', 'country hits', 'best country songs'] 
+    id: '37i9dQZF1DX1lVhptIYRda', // Hot Country (Spotify editorial)
+    name: 'Hot Country',
+    fallbackSearch: ['top country hits 2025', 'country hits', 'best country songs 2025']
   },
 };
 
@@ -52,9 +60,9 @@ serve(async (req) => {
     const { genre = 'pop', access_token: userAccessToken } = body;
     
     const genreKey = genre.toLowerCase();
-    const genreConfig = GENRE_CONFIG[genreKey] || GENRE_CONFIG.pop;
+    const genreConfig = GENRE_PLAYLISTS[genreKey] || GENRE_PLAYLISTS.pop;
     
-    console.log(`Fetching tracks for genre: ${genre}`);
+    console.log(`Fetching tracks for genre: ${genre}, playlist: ${genreConfig.name}`);
     
     const SPOTIFY_CLIENT_ID = Deno.env.get('SPOTIFY_CLIENT_ID');
     const SPOTIFY_CLIENT_SECRET = Deno.env.get('SPOTIFY_CLIENT_SECRET');
@@ -63,7 +71,7 @@ serve(async (req) => {
       throw new Error('Spotify credentials not configured');
     }
 
-    // Get access token
+    // Get access token (prefer user token, fallback to client credentials)
     let token = userAccessToken;
     if (!token) {
       const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
@@ -79,39 +87,56 @@ serve(async (req) => {
       token = tokenData.access_token;
     }
 
-    // ATTEMPT 1: Get recommendations based on genre seeds
-    console.log('Trying genre recommendations...');
-    const seedGenres = genreConfig.seeds.join(',');
-    const recsResponse = await fetch(
-      `https://api.spotify.com/v1/recommendations?seed_genres=${seedGenres}&limit=10&market=US`,
-      { headers: { 'Authorization': `Bearer ${token}` } }
-    );
-
-    if (recsResponse.ok) {
-      const recsData = await recsResponse.json();
-      if (recsData.tracks && recsData.tracks.length >= 5) {
-        console.log(`Got ${recsData.tracks.length} tracks from recommendations`);
-        const tracks = recsData.tracks.map((track: any, index: number) => ({
-          rank: index + 1,
-          id: track.id,
-          title: track.name,
-          artist: track.artists?.map((a: any) => a.name).join(', '),
-          album: track.album?.name,
-          albumImage: track.album?.images?.[0]?.url,
-          popularity: track.popularity,
-        }));
-        return new Response(JSON.stringify({ tracks, genre, source: 'recommendations' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+    // Helper to fetch playlist tracks
+    async function fetchPlaylistTracks(playlistId: string): Promise<any[] | null> {
+      const response = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=10&market=US`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        return data.items;
       }
+      console.log(`Playlist ${playlistId} fetch failed: ${response.status}`);
+      return null;
     }
 
-    // ATTEMPT 2: Search for genre playlists
-    console.log('Searching for genre playlists...');
-    for (const searchTerm of genreConfig.searchTerms) {
+    // Helper to format tracks
+    function formatTracks(items: any[]): any[] {
+      return items
+        .filter((item: any) => item.track?.id)
+        .map((item: any, index: number) => ({
+          rank: index + 1,
+          id: item.track.id,
+          title: item.track.name,
+          artist: item.track.artists?.map((a: any) => a.name).join(', '),
+          album: item.track.album?.name,
+          albumImage: item.track.album?.images?.[0]?.url,
+          popularity: item.track.popularity,
+        }));
+    }
+
+    // ATTEMPT 1: Try the predefined genre playlist directly
+    console.log(`Trying predefined playlist: ${genreConfig.name} (${genreConfig.id})`);
+    const playlistTracks = await fetchPlaylistTracks(genreConfig.id);
+    if (playlistTracks && playlistTracks.length >= 5) {
+      console.log(`SUCCESS! Got ${playlistTracks.length} tracks from ${genreConfig.name}`);
+      return new Response(JSON.stringify({ 
+        tracks: formatTracks(playlistTracks), 
+        genre, 
+        source: 'playlist',
+        playlist: genreConfig.name 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ATTEMPT 2: Search for genre playlists as fallback
+    console.log('Predefined playlist failed, searching for alternatives...');
+    for (const searchTerm of genreConfig.fallbackSearch) {
       const searchQuery = encodeURIComponent(searchTerm);
       const searchResponse = await fetch(
-        `https://api.spotify.com/v1/search?q=${searchQuery}&type=playlist&limit=5&market=US`,
+        `https://api.spotify.com/v1/search?q=${searchQuery}&type=playlist&limit=10&market=US`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
 
@@ -121,50 +146,47 @@ serve(async (req) => {
         
         for (const playlist of playlists) {
           if (playlist?.tracks?.total >= 10) {
-            console.log(`Trying playlist: "${playlist.name}"`);
-            const tracksResponse = await fetch(
-              `https://api.spotify.com/v1/playlists/${playlist.id}/tracks?limit=10&market=US`,
-              { headers: { 'Authorization': `Bearer ${token}` } }
-            );
-            
-            if (tracksResponse.ok) {
-              const tracksData = await tracksResponse.json();
-              if (tracksData.items && tracksData.items.length >= 5) {
-                const tracks = tracksData.items
-                  .filter((item: any) => item.track?.id)
-                  .map((item: any, index: number) => ({
-                    rank: index + 1,
-                    id: item.track.id,
-                    title: item.track.name,
-                    artist: item.track.artists?.map((a: any) => a.name).join(', '),
-                    album: item.track.album?.name,
-                    albumImage: item.track.album?.images?.[0]?.url,
-                    popularity: item.track.popularity,
-                  }));
-                
-                console.log(`Got ${tracks.length} tracks from playlist "${playlist.name}"`);
-                return new Response(JSON.stringify({ tracks, genre, source: 'playlist', playlist: playlist.name }), {
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                });
-              }
+            console.log(`Trying search result: "${playlist.name}" (${playlist.owner?.display_name})`);
+            const tracks = await fetchPlaylistTracks(playlist.id);
+            if (tracks && tracks.length >= 5) {
+              console.log(`SUCCESS with fallback! Got ${tracks.length} tracks from "${playlist.name}"`);
+              return new Response(JSON.stringify({ 
+                tracks: formatTracks(tracks), 
+                genre, 
+                source: 'search',
+                playlist: playlist.name 
+              }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
             }
           }
         }
       }
     }
 
-    // ATTEMPT 3: Search for tracks directly
-    console.log('Searching for tracks directly...');
-    const trackSearchQuery = encodeURIComponent(`genre:${genreConfig.seeds[0]}`);
-    const trackSearchResponse = await fetch(
-      `https://api.spotify.com/v1/search?q=${trackSearchQuery}&type=track&limit=10&market=US`,
+    // ATTEMPT 3: Use Spotify recommendations API
+    console.log('Falling back to recommendations...');
+    const genreSeeds: Record<string, string> = {
+      pop: 'pop',
+      hiphop: 'hip-hop',
+      rock: 'rock',
+      rap: 'hip-hop',
+      rnb: 'r-n-b',
+      electronic: 'electronic',
+      latin: 'latin',
+      country: 'country',
+    };
+    
+    const seedGenre = genreSeeds[genreKey] || 'pop';
+    const recsResponse = await fetch(
+      `https://api.spotify.com/v1/recommendations?seed_genres=${seedGenre}&limit=10&market=US`,
       { headers: { 'Authorization': `Bearer ${token}` } }
     );
 
-    if (trackSearchResponse.ok) {
-      const trackSearchData = await trackSearchResponse.json();
-      if (trackSearchData.tracks?.items?.length >= 5) {
-        const tracks = trackSearchData.tracks.items.map((track: any, index: number) => ({
+    if (recsResponse.ok) {
+      const recsData = await recsResponse.json();
+      if (recsData.tracks && recsData.tracks.length >= 5) {
+        const tracks = recsData.tracks.map((track: any, index: number) => ({
           rank: index + 1,
           id: track.id,
           title: track.name,
@@ -173,8 +195,8 @@ serve(async (req) => {
           albumImage: track.album?.images?.[0]?.url,
           popularity: track.popularity,
         }));
-        console.log(`Got ${tracks.length} tracks from track search`);
-        return new Response(JSON.stringify({ tracks, genre, source: 'search' }), {
+        console.log(`SUCCESS with recommendations! Got ${tracks.length} tracks`);
+        return new Response(JSON.stringify({ tracks, genre, source: 'recommendations' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

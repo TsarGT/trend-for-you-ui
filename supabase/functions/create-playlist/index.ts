@@ -57,6 +57,24 @@ async function fetchWithAuth(url: string, accessToken: string) {
   return response;
 }
 
+// Normalize string for matching: lowercase, remove special chars, trim whitespace
+function normalizeForMatch(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '') // Remove special characters
+    .replace(/\s+/g, ' ')    // Normalize whitespace
+    .trim();
+}
+
+// Create a match key from track name + first artist
+function createMatchKey(trackName: string, artists: string): string {
+  const normalizedTrack = normalizeForMatch(trackName);
+  // Get first artist (artists may be comma-separated or semicolon-separated)
+  const firstArtist = artists.split(/[,;]/)[0].trim();
+  const normalizedArtist = normalizeForMatch(firstArtist);
+  return `${normalizedTrack}|||${normalizedArtist}`;
+}
+
 // Parse CSV to tracks
 function parseCSV(csvText: string): DatasetTrack[] {
   const lines = csvText.trim().split('\n');
@@ -471,15 +489,32 @@ serve(async (req) => {
     console.log('Normalizing dataset features...');
     const { data: normalizedData, mins, maxs } = normalizeFeatures(rawTracks);
 
-    // Step 4: Try to merge user top tracks with dataset (inner join on track_id)
-    const userTrackIds = userTopTracks.map((t: any) => t.id);
-    const datasetTrackMap = new Map(normalizedData.map(t => [t.track_id, t]));
+    // Step 4: Merge user top tracks with dataset using track_name + artist matching (case-insensitive)
+    // This works better than track_id since the same song has different IDs across albums/releases/regions
+    const datasetMatchMap = new Map<string, NormalizedTrack>();
+    for (const track of normalizedData) {
+      const key = createMatchKey(track.track_name, track.artists);
+      if (!datasetMatchMap.has(key)) {
+        datasetMatchMap.set(key, track);
+      }
+    }
+    console.log(`Built match map with ${datasetMatchMap.size} unique track+artist combinations`);
     
     const userTracksWithFeatures: NormalizedTrack[] = [];
+    const userTrackIds: string[] = [];
+    
     for (const userTrack of userTopTracks) {
-      const datasetTrack = datasetTrackMap.get(userTrack.id);
+      userTrackIds.push(userTrack.id);
+      
+      // Get first artist name from Spotify response
+      const artistName = userTrack.artists?.[0]?.name || '';
+      const trackName = userTrack.name || '';
+      const matchKey = createMatchKey(trackName, artistName);
+      
+      const datasetTrack = datasetMatchMap.get(matchKey);
       if (datasetTrack) {
         userTracksWithFeatures.push(datasetTrack);
+        console.log(`Matched: "${trackName}" by "${artistName}"`);
       }
     }
     

@@ -53,13 +53,9 @@ serve(async (req) => {
     // Fetch recently played
     const recentlyPlayed = await fetchSpotify('/me/player/recently-played?limit=50', access_token);
 
-    // Get audio features for top tracks
-    const trackIds = topTracksMedium.items.slice(0, 50).map((t: any) => t.id).join(',');
-    let audioFeatures = { audio_features: [] };
-    
-    if (trackIds) {
-      audioFeatures = await fetchSpotify(`/audio-features?ids=${trackIds}`, access_token);
-    }
+    // Note: Audio features API was deprecated by Spotify in late 2024
+    // Skipping audio features fetch - will use empty array
+    const audioFeatures = { audio_features: [] };
 
     // Process genres from top artists
     const genreCounts: Record<string, number> = {};

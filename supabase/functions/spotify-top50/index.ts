@@ -41,39 +41,108 @@ serve(async (req) => {
     // Get the playlist ID for the selected country
     const playlistId = TOP_50_PLAYLISTS[country.toLowerCase()] || TOP_50_PLAYLISTS.global;
 
-    // If we have a user token, try to access the playlist directly
+    // If we have a user token, try to access the playlist via featured playlists
     if (userAccessToken) {
-      console.log(`Trying playlist ${playlistId} with user token...`);
+      console.log(`Trying to get Top 50 for country: ${country} with user token...`);
       
-      const playlistResponse = await fetch(
-        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`,
-        {
+      try {
+        // First verify the token works by getting user profile
+        const profileResponse = await fetch('https://api.spotify.com/v1/me', {
           headers: { 'Authorization': `Bearer ${userAccessToken}` },
-        }
-      );
-
-      console.log(`Playlist response status: ${playlistResponse.status}`);
-
-      if (playlistResponse.ok) {
-        const playlistData = await playlistResponse.json();
-        console.log(`SUCCESS! Got ${playlistData.items?.length || 0} tracks from Top 50`);
-
-        const tracks = playlistData.items?.map((item: any, index: number) => ({
-          rank: index + 1,
-          id: item.track?.id,
-          title: item.track?.name,
-          artist: item.track?.artists?.map((a: any) => a.name).join(', '),
-          album: item.track?.album?.name,
-          albumImage: item.track?.album?.images?.[0]?.url,
-          popularity: item.track?.popularity,
-        })).filter((t: any) => t.id) || [];
-
-        return new Response(JSON.stringify({ tracks, country, source: 'top50' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
-      } else {
-        const errorText = await playlistResponse.text();
-        console.error(`Playlist error: ${playlistResponse.status} - ${errorText}`);
+        
+        if (!profileResponse.ok) {
+          console.error('Token invalid, status:', profileResponse.status);
+        } else {
+          const profile = await profileResponse.json();
+          const market = profile.country || 'US';
+          console.log(`User market: ${market}`);
+          
+          // Try to find Top 50 via featured playlists first
+          const featuredResponse = await fetch(
+            `https://api.spotify.com/v1/browse/featured-playlists?country=${market}&limit=50`,
+            {
+              headers: { 'Authorization': `Bearer ${userAccessToken}` },
+            }
+          );
+          
+          if (featuredResponse.ok) {
+            const featured = await featuredResponse.json();
+            console.log(`Got ${featured.playlists?.items?.length || 0} featured playlists`);
+            
+            // Look for Top 50 playlist
+            const top50Playlist = featured.playlists?.items?.find((p: any) => 
+              p.name?.toLowerCase().includes('top 50') || 
+              p.name?.toLowerCase().includes('top hits') ||
+              p.name?.toLowerCase().includes('viral')
+            );
+            
+            if (top50Playlist) {
+              console.log(`Found playlist: ${top50Playlist.name} (${top50Playlist.id})`);
+              
+              const tracksResponse = await fetch(
+                `https://api.spotify.com/v1/playlists/${top50Playlist.id}/tracks?market=${market}&limit=50`,
+                {
+                  headers: { 'Authorization': `Bearer ${userAccessToken}` },
+                }
+              );
+              
+              if (tracksResponse.ok) {
+                const tracksData = await tracksResponse.json();
+                const tracks = tracksData.items?.map((item: any, index: number) => ({
+                  rank: index + 1,
+                  id: item.track?.id,
+                  title: item.track?.name,
+                  artist: item.track?.artists?.map((a: any) => a.name).join(', '),
+                  album: item.track?.album?.name,
+                  albumImage: item.track?.album?.images?.[0]?.url,
+                  popularity: item.track?.popularity,
+                })).filter((t: any) => t.id) || [];
+
+                return new Response(JSON.stringify({ 
+                  tracks, 
+                  country, 
+                  source: 'featured', 
+                  playlist: top50Playlist.name 
+                }), {
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                });
+              }
+            }
+          }
+          
+          // Fallback: Try direct playlist access with the hardcoded ID
+          console.log(`Trying direct playlist ${playlistId}...`);
+          const playlistResponse = await fetch(
+            `https://api.spotify.com/v1/playlists/${playlistId}?market=${market}`,
+            {
+              headers: { 'Authorization': `Bearer ${userAccessToken}` },
+            }
+          );
+
+          if (playlistResponse.ok) {
+            const playlistData = await playlistResponse.json();
+            console.log(`SUCCESS! Got playlist: ${playlistData.name}`);
+
+            const tracks = playlistData.tracks?.items?.map((item: any, index: number) => ({
+              rank: index + 1,
+              id: item.track?.id,
+              title: item.track?.name,
+              artist: item.track?.artists?.map((a: any) => a.name).join(', '),
+              album: item.track?.album?.name,
+              albumImage: item.track?.album?.images?.[0]?.url,
+              popularity: item.track?.popularity,
+            })).filter((t: any) => t.id) || [];
+
+            return new Response(JSON.stringify({ tracks, country, source: 'top50', playlist: playlistData.name }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } else {
+            console.error(`Direct playlist error: ${playlistResponse.status}`);
+          }
+        }
+      } catch (fetchError: any) {
+        console.error(`Fetch error: ${fetchError.message}`);
       }
     }
 

@@ -471,8 +471,7 @@ serve(async (req) => {
     console.log('Normalizing dataset features...');
     const { data: normalizedData, mins, maxs } = normalizeFeatures(rawTracks);
 
-    // Step 4: Merge user top tracks with dataset (inner join on track_id)
-    // This is the key step - we only use audio features from the dataset, not Spotify API
+    // Step 4: Try to merge user top tracks with dataset (inner join on track_id)
     const userTrackIds = userTopTracks.map((t: any) => t.id);
     const datasetTrackMap = new Map(normalizedData.map(t => [t.track_id, t]));
     
@@ -486,21 +485,73 @@ serve(async (req) => {
     
     console.log(`Matched ${userTracksWithFeatures.length} of ${userTopTracks.length} user tracks with dataset`);
 
-    // Step 5: Get unique genres from matched user tracks
-    const userGenres = [...new Set(userTracksWithFeatures.map(t => t.track_genre).filter(g => g))];
-    console.log(`User genres from dataset: ${userGenres.join(', ')}`);
-
-    // If no tracks matched, we cannot proceed (compliance with Spotify API - we don't use their audio features)
-    if (userTracksWithFeatures.length === 0 || userGenres.length === 0) {
-      console.log('No user tracks found in dataset, cannot generate recommendations');
-      return new Response(
-        JSON.stringify({ 
-          error: 'None of your top tracks were found in our music database. This can happen if you listen to very new or niche music. Try again after listening to more mainstream tracks!',
-          tip: 'Our database contains 114,000 tracks across various genres. Tracks released after 2023 may not be included.'
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Step 5: Get genres - either from matched tracks OR from Spotify artist data
+    let userGenres: string[] = [];
+    
+    if (userTracksWithFeatures.length > 0) {
+      // Use genres from matched dataset tracks
+      userGenres = [...new Set(userTracksWithFeatures.map(t => t.track_genre).filter(g => g))];
+      console.log(`User genres from dataset matches: ${userGenres.join(', ')}`);
     }
+    
+    // If no matches or no genres, get genres from Spotify artist data
+    if (userGenres.length === 0) {
+      console.log('No dataset matches, fetching artist genres from Spotify...');
+      
+      const artistIds = [...new Set(userTopTracks.flatMap((t: any) => t.artists.map((a: any) => a.id)))];
+      const allArtistGenres: string[] = [];
+      
+      // Fetch artists in batches of 50
+      for (let i = 0; i < artistIds.length; i += 50) {
+        const batch = artistIds.slice(i, i + 50);
+        const artistsResponse = await fetchWithAuth(
+          `https://api.spotify.com/v1/artists?ids=${batch.join(',')}`,
+          access_token
+        );
+        if (artistsResponse.ok) {
+          const artistsData = await artistsResponse.json();
+          for (const artist of artistsData.artists || []) {
+            if (artist?.genres) {
+              allArtistGenres.push(...artist.genres);
+            }
+          }
+        }
+      }
+      
+      console.log(`Found ${allArtistGenres.length} artist genre tags from Spotify`);
+      
+      // Map Spotify artist genres to dataset genres
+      const datasetGenres = [...new Set(rawTracks.map(t => t.track_genre))];
+      
+      for (const artistGenre of allArtistGenres) {
+        const normalizedArtistGenre = artistGenre.toLowerCase();
+        for (const datasetGenre of datasetGenres) {
+          const normalizedDatasetGenre = datasetGenre.toLowerCase();
+          if (normalizedArtistGenre.includes(normalizedDatasetGenre) || 
+              normalizedDatasetGenre.includes(normalizedArtistGenre) ||
+              normalizedArtistGenre === normalizedDatasetGenre) {
+            if (!userGenres.includes(datasetGenre)) {
+              userGenres.push(datasetGenre);
+            }
+          }
+        }
+      }
+      
+      console.log(`Mapped to dataset genres: ${userGenres.join(', ')}`);
+    }
+
+    // If still no genres, use popular fallback genres
+    if (userGenres.length === 0) {
+      const genreCounts = new Map<string, number>();
+      for (const track of rawTracks) {
+        genreCounts.set(track.track_genre, (genreCounts.get(track.track_genre) || 0) + 1);
+      }
+      const sortedGenres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]);
+      userGenres = sortedGenres.slice(0, 5).map(g => g[0]);
+      console.log(`Using fallback popular genres: ${userGenres.join(', ')}`);
+    }
+
+    console.log(`Final genres for recommendations: ${userGenres.join(', ')}`);
 
     // Step 6: Build KMeans models per genre (15 clusters, min 100 songs per genre)
     console.log('Building KMeans clusters per genre...');
@@ -517,21 +568,36 @@ serve(async (req) => {
     }
     console.log(`Excluding ${knownTrackIds.size} known tracks`);
 
-    // Step 8: Get recommendations for each user track using cluster-based approach
+    // Step 8: Get recommendations
     console.log('Generating recommendations using KMeans clustering...');
     const allRecommendations = new Map<string, NormalizedTrack>();
     
-    for (const userTrack of userTracksWithFeatures) {
-      // Get recommendations from same genre cluster
-      const recs = getRecommendationsByGenre(userTrack, genreModels, 10);
-      
-      for (const rec of recs) {
-        // Skip if already known
-        if (knownTrackIds.has(rec.track_id)) continue;
+    if (userTracksWithFeatures.length > 0) {
+      // If we have matched tracks, use cluster-based recommendations
+      for (const userTrack of userTracksWithFeatures) {
+        const recs = getRecommendationsByGenre(userTrack, genreModels, 10);
+        for (const rec of recs) {
+          if (knownTrackIds.has(rec.track_id)) continue;
+          if (!allRecommendations.has(rec.track_id)) {
+            allRecommendations.set(rec.track_id, rec);
+          }
+        }
+      }
+    } else {
+      // If no matched tracks, get top tracks from each genre's clusters
+      for (const genre of userGenres) {
+        const model = genreModels.get(genre);
+        if (!model) continue;
         
-        // Add to recommendations if not already there
-        if (!allRecommendations.has(rec.track_id)) {
-          allRecommendations.set(rec.track_id, rec);
+        // Get tracks from each cluster, sorted by popularity
+        for (const [clusterId, clusterTracks] of model.clusters) {
+          const sortedCluster = [...clusterTracks].sort((a, b) => b.popularity - a.popularity);
+          for (const track of sortedCluster.slice(0, 5)) {
+            if (knownTrackIds.has(track.track_id)) continue;
+            if (!allRecommendations.has(track.track_id)) {
+              allRecommendations.set(track.track_id, track);
+            }
+          }
         }
       }
     }

@@ -200,11 +200,18 @@ serve(async (req) => {
   }
 
   try {
-    const { access_token, playlist_name = 'TrendTracks Recommendations', num_tracks = 30 } = await req.json();
+    const { access_token, playlist_name = 'TrendTracks Recommendations', num_tracks = 30, dataset_url } = await req.json();
 
     if (!access_token) {
       return new Response(
         JSON.stringify({ error: 'Access token required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!dataset_url) {
+      return new Response(
+        JSON.stringify({ error: 'Dataset URL required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -281,33 +288,23 @@ serve(async (req) => {
     
     console.log(`Excluding ${excludeTrackIds.size} known tracks`);
 
-    // 3. Load and parse the dataset
-    // Fetch from the public URL of the dataset
-    const datasetUrl = `${Deno.env.get('SUPABASE_URL')?.replace('/functions/v1', '')}/storage/v1/object/public/datasets/dataset.csv`;
+    // 3. Load and parse the dataset from the provided URL
+    console.log('Fetching dataset from:', dataset_url);
     
-    // Try to fetch from storage, fall back to embedded sample if not available
-    let datasetTracks: Track[] = [];
-    
-    try {
-      const datasetResponse = await fetch(datasetUrl);
-      if (datasetResponse.ok) {
-        const csvText = await datasetResponse.text();
-        datasetTracks = parseCSV(csvText);
-      }
-    } catch (e) {
-      console.log('Dataset not in storage, using request body dataset');
-    }
-
-    // If no dataset available, return error with helpful message
-    if (datasetTracks.length === 0) {
+    const datasetResponse = await fetch(dataset_url);
+    if (!datasetResponse.ok) {
+      console.error('Failed to fetch dataset:', datasetResponse.status);
       return new Response(
         JSON.stringify({ 
-          error: 'Dataset not available. Please ensure the dataset is uploaded.',
-          message: 'The recommendation system requires the track dataset to generate personalized playlists.'
+          error: 'Failed to fetch dataset',
+          message: 'Could not load the track dataset for recommendations.'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    const csvText = await datasetResponse.text();
+    const datasetTracks = parseCSV(csvText);
 
     console.log(`Loaded ${datasetTracks.length} tracks from dataset`);
 

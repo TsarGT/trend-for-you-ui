@@ -25,7 +25,9 @@ serve(async (req) => {
         'user-read-email',
         'user-top-read',
         'user-read-recently-played',
-        'user-library-read'
+        'user-library-read',
+        'playlist-modify-private',
+        'playlist-modify-public'
       ].join(' ');
 
       const authUrl = `https://accounts.spotify.com/authorize?` +

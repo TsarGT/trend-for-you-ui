@@ -460,9 +460,9 @@ serve(async (req) => {
     const rawTracks = parseCSV(csvText);
     console.log(`Parsed ${rawTracks.length} tracks from dataset`);
 
-    // Step 2: Get user's top 50 tracks (short_term like notebook)
+    // Step 2: Get user's top 50 tracks (long_term for better dataset matching)
     const topTracksResponse = await fetchWithAuth(
-      'https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=short_term',
+      'https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=long_term',
       access_token
     );
 

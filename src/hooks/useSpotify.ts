@@ -83,8 +83,18 @@ export function useSpotify() {
     const handleMessage = (event: MessageEvent) => {
       console.log('Received message:', event.data);
       if (event.data?.type === 'spotify-auth-complete' && event.data.success) {
-        console.log('Auth complete, checking token...');
-        setTimeout(() => checkToken(), 100); // Small delay to ensure localStorage is written
+        console.log('Auth complete with token data:', !!event.data.tokenData);
+        
+        // Use token data passed directly from popup (localStorage may not be shared in iframe)
+        if (event.data.tokenData?.access_token && event.data.tokenData?.expiry) {
+          localStorage.setItem('spotify_access_token', event.data.tokenData.access_token);
+          localStorage.setItem('spotify_token_expiry', event.data.tokenData.expiry);
+          setAccessToken(event.data.tokenData.access_token);
+          setIsConnected(true);
+        } else {
+          // Fallback to checking localStorage
+          setTimeout(() => checkToken(), 100);
+        }
       }
     };
 

@@ -24,10 +24,20 @@ const SpotifyCallback = () => {
         const success = await handleCallback(code);
         setStatus(success ? 'success' : 'error');
         
-        // Notify opener window if exists
+        // Get the token data to pass to opener
+        const tokenData = success ? {
+          access_token: localStorage.getItem('spotify_access_token'),
+          expiry: localStorage.getItem('spotify_token_expiry')
+        } : null;
+        
+        // Notify opener window if exists - pass token directly since localStorage may not be shared
         if (window.opener) {
           try {
-            window.opener.postMessage({ type: 'spotify-auth-complete', success }, window.location.origin);
+            window.opener.postMessage({ 
+              type: 'spotify-auth-complete', 
+              success,
+              tokenData 
+            }, '*'); // Use * to allow cross-origin in iframe scenario
           } catch (e) {
             console.log('Could not communicate with opener');
           }

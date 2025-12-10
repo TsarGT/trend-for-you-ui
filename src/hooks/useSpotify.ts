@@ -60,31 +60,48 @@ export function useSpotify() {
   const [spotifyData, setSpotifyData] = useState<SpotifyData | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Check localStorage for existing token
+  const checkToken = useCallback(() => {
     const storedToken = localStorage.getItem('spotify_access_token');
     const tokenExpiry = localStorage.getItem('spotify_token_expiry');
     
     if (storedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
       setAccessToken(storedToken);
       setIsConnected(true);
+      return true;
+    } else {
+      setAccessToken(null);
+      setIsConnected(false);
+      return false;
     }
+  }, []);
+
+  useEffect(() => {
+    checkToken();
 
     // Listen for auth completion from popup window
     const handleMessage = (event: MessageEvent) => {
+      console.log('Received message:', event.data);
       if (event.data?.type === 'spotify-auth-complete' && event.data.success) {
-        // Refresh state from localStorage
-        const token = localStorage.getItem('spotify_access_token');
-        const expiry = localStorage.getItem('spotify_token_expiry');
-        if (token && expiry && Date.now() < parseInt(expiry)) {
-          setAccessToken(token);
-          setIsConnected(true);
-        }
+        console.log('Auth complete, checking token...');
+        setTimeout(() => checkToken(), 100); // Small delay to ensure localStorage is written
       }
     };
 
+    // Also check on window focus (in case popup closed without message)
+    const handleFocus = () => {
+      console.log('Window focused, checking token...');
+      checkToken();
+    };
+
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [checkToken]);
 
   const connect = useCallback(async () => {
     try {

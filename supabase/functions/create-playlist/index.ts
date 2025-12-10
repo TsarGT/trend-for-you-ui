@@ -415,17 +415,29 @@ serve(async (req) => {
     console.log('Creating playlist:', finalPlaylistName);
 
     // Step 1: Fetch dataset
-    console.log('Fetching dataset...');
-    const datasetResponse = await fetch(DATASET_URL);
-    if (!datasetResponse.ok) {
-      console.error('Failed to fetch dataset');
+    console.log('Fetching dataset from:', DATASET_URL);
+    let datasetResponse;
+    try {
+      datasetResponse = await fetch(DATASET_URL);
+      console.log('Dataset response status:', datasetResponse.status);
+    } catch (fetchError) {
+      console.error('Fetch error:', fetchError);
       return new Response(
-        JSON.stringify({ error: 'Failed to load music database' }),
+        JSON.stringify({ error: 'Network error fetching music database' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!datasetResponse.ok) {
+      const errorText = await datasetResponse.text().catch(() => 'Unknown error');
+      console.error('Failed to fetch dataset:', datasetResponse.status, errorText.substring(0, 500));
+      return new Response(
+        JSON.stringify({ error: `Failed to load music database (${datasetResponse.status})` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     const csvText = await datasetResponse.text();
-    console.log(`Dataset fetched, parsing...`);
+    console.log(`Dataset fetched, size: ${csvText.length} chars, parsing...`);
     
     const rawTracks = parseCSV(csvText);
     console.log(`Parsed ${rawTracks.length} tracks from dataset`);

@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/Navbar";
 import { TrackCard } from "@/components/TrackCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
@@ -10,27 +10,52 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Globe } from "lucide-react";
+import { Globe, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Top50Track {
+  rank: number;
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  albumImage: string;
+  popularity: number;
+  previewUrl?: string;
+  externalUrl?: string;
+}
 
 const Index = () => {
   const [selectedGenre, setSelectedGenre] = useState("pop");
   const [selectedCountry, setSelectedCountry] = useState("global");
+  const [globalTracks, setGlobalTracks] = useState<Top50Track[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data for Global Now
-  const globalTracks = [
-    { rank: 1, title: "Midnight Dreams", artist: "Luna Eclipse", rankChange: 3 },
-    { rank: 2, title: "Electric Pulse", artist: "Neon Waves", rankChange: -1 },
-    { rank: 3, title: "Sunset Boulevard", artist: "The Wanderers", rankChange: "NEW" as const },
-    { rank: 4, title: "Crystal Rain", artist: "Aurora Sky", rankChange: 2 },
-    { rank: 5, title: "Urban Legends", artist: "Metro Kings", rankChange: -2 },
-    { rank: 6, title: "Velvet Nights", artist: "Smooth Operators", rankChange: 1 },
-    { rank: 7, title: "Digital Love", artist: "Cyber Hearts", rankChange: "NEW" as const },
-    { rank: 8, title: "Ocean Drive", artist: "Coastal Vibes", rankChange: -3 },
-    { rank: 9, title: "Neon Tokyo", artist: "Future Sound", rankChange: 4 },
-    { rank: 10, title: "Starlight Serenade", artist: "Night Owls", rankChange: 1 },
-  ];
+  useEffect(() => {
+    const fetchTop50 = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase.functions.invoke('spotify-top50');
+        
+        if (error) {
+          console.error('Error fetching Top 50:', error);
+          return;
+        }
+        
+        if (data?.tracks) {
+          setGlobalTracks(data.tracks);
+        }
+      } catch (err) {
+        console.error('Failed to fetch Top 50:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Mock data for Genre tracks
+    fetchTop50();
+  }, []);
+
+  // Mock data for Genre tracks (can be replaced with real data later)
   const genreTracks = {
     pop: [
       { title: "Pop Sensation", artist: "Chart Toppers" },
@@ -88,27 +113,18 @@ const Index = () => {
     },
   ];
 
-  // Mock data for Popular Albums/Songs of the Day
-  const popularToday = [
-    {
-      title: "Midnight Dreams",
-      artist: "Luna Eclipse",
-      reason: "Top tracks of your favourite artist of the day",
-      type: "Song" as const,
-    },
-    {
-      title: "Electric Pulse",
-      artist: "Neon Waves",
-      reason: "Listeners of Metro Kings are listening to this album today",
-      type: "Album" as const,
-    },
-    {
-      title: "Urban Jazz",
-      artist: "City Sounds",
-      reason: "Top tracks of your favourite artist of the day",
-      type: "Song" as const,
-    },
-  ];
+  // Use top tracks for "Made for You" section
+  const popularToday = globalTracks.slice(0, 3).map((track, idx) => ({
+    title: track.title,
+    artist: track.artist,
+    albumImage: track.albumImage,
+    reason: idx === 0 
+      ? "Top track worldwide today" 
+      : idx === 1 
+        ? "Trending across all genres" 
+        : "Rising fast this week",
+    type: "Song" as const,
+  }));
 
   const genres = [
     { id: "pop", label: "Pop" },
@@ -140,7 +156,7 @@ const Index = () => {
         <section>
           <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-1">Global Now</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-1">Global Top 50</h2>
               <p className="text-sm text-muted-foreground">Top Trending Tracks Worldwide</p>
             </div>
             <div className="flex items-center gap-2">
@@ -160,18 +176,24 @@ const Index = () => {
             </div>
           </div>
           
-          <div className="grid gap-2">
-            {globalTracks.slice(0, 5).map((track) => (
-              <TrackCard
-                key={track.rank}
-                rank={track.rank}
-                title={track.title}
-                artist={track.artist}
-                rankChange={track.rankChange}
-                showRank={true}
-              />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {globalTracks.slice(0, 10).map((track) => (
+                <TrackCard
+                  key={track.id}
+                  rank={track.rank}
+                  title={track.title}
+                  artist={track.artist}
+                  albumImage={track.albumImage}
+                  showRank={true}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Section 2: By Genre */}
@@ -238,15 +260,20 @@ const Index = () => {
             <div>
               <h3 className="text-lg font-semibold text-foreground mb-3">Top Choices for You</h3>
               <div className="grid gap-2">
-                {popularToday.map((track, index) => (
-                  <TrackCard
-                    key={index}
-                    title={track.title}
-                    artist={track.artist}
-                    reason={track.reason}
-                    type={track.type}
-                  />
-                ))}
+                {popularToday.length > 0 ? (
+                  popularToday.map((track, index) => (
+                    <TrackCard
+                      key={index}
+                      title={track.title}
+                      artist={track.artist}
+                      albumImage={track.albumImage}
+                      reason={track.reason}
+                      type={track.type}
+                    />
+                  ))
+                ) : (
+                  <div className="text-muted-foreground text-sm">Loading recommendations...</div>
+                )}
               </div>
             </div>
           </div>

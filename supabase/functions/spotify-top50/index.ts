@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Spotify Top 50 playlist IDs by country (official editorial playlists)
+// Spotify Top 50 playlist IDs by country (official editorial playlists - may be blocked)
 const TOP_50_PLAYLISTS: Record<string, string> = {
   global: '37i9dQZEVXbMDoHDwVN2tF',
   us: '37i9dQZEVXbLRQDuF5jeBp',
@@ -149,31 +149,49 @@ serve(async (req) => {
       });
     }
 
-    // ATTEMPT 3: Search for public chart playlists
-    console.log('Searching for public chart playlists...');
-    const searchQuery = encodeURIComponent(`Top 50 ${countryName} 2024`);
-    const searchResponse = await fetch(
-      `https://api.spotify.com/v1/search?q=${searchQuery}&type=playlist&limit=20&market=${marketCode}`,
+    // ATTEMPT 3: Use Spotify's "toplists" category which contains official chart playlists
+    console.log('Fetching from toplists category...');
+    const toplistsResponse = await fetch(
+      `https://api.spotify.com/v1/browse/categories/toplists/playlists?country=${marketCode}&limit=20`,
       { headers: { 'Authorization': `Bearer ${clientToken}` } }
     );
 
-    if (searchResponse.ok) {
-      const searchData = await searchResponse.json();
-      // Find a playlist with many followers that looks like a chart
-      const playlists = searchData.playlists?.items || [];
+    if (toplistsResponse.ok) {
+      const toplistsData = await toplistsResponse.json();
+      const playlists = toplistsData.playlists?.items || [];
+      
+      // Look for the Top 50 playlist in the toplists
       for (const playlist of playlists) {
-        if (playlist?.tracks?.total >= 20 && 
-            (playlist.name?.toLowerCase().includes('top') || 
-             playlist.name?.toLowerCase().includes('hits') ||
-             playlist.name?.toLowerCase().includes('chart'))) {
-          console.log(`Trying public playlist: "${playlist.name}" by ${playlist.owner?.display_name}`);
+        if (playlist?.name?.toLowerCase().includes('top 50') || 
+            playlist?.name?.toLowerCase().includes('top songs') ||
+            playlist?.name?.toLowerCase().includes('viral')) {
+          console.log(`Trying toplists playlist: "${playlist.name}"`);
           const playlistItems = await fetchPlaylist(clientToken, playlist.id, marketCode);
           if (playlistItems && playlistItems.length >= 10) {
-            console.log(`SUCCESS with public playlist! Got ${playlistItems.length} tracks`);
+            console.log(`SUCCESS with toplists! Got ${playlistItems.length} tracks from "${playlist.name}"`);
             return new Response(JSON.stringify({ 
               tracks: extractTracks(playlistItems), 
               country, 
-              source: 'public_chart', 
+              source: 'toplists', 
+              playlist: playlist.name 
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        }
+      }
+      
+      // If no Top 50, just use the first available playlist from toplists
+      for (const playlist of playlists) {
+        if (playlist?.id) {
+          console.log(`Trying any toplists playlist: "${playlist.name}"`);
+          const playlistItems = await fetchPlaylist(clientToken, playlist.id, marketCode);
+          if (playlistItems && playlistItems.length >= 10) {
+            console.log(`SUCCESS with toplists fallback! Got ${playlistItems.length} tracks`);
+            return new Response(JSON.stringify({ 
+              tracks: extractTracks(playlistItems), 
+              country, 
+              source: 'toplists', 
               playlist: playlist.name 
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -183,10 +201,10 @@ serve(async (req) => {
       }
     }
 
-    // ATTEMPT 4: Featured playlists for the market
+    // ATTEMPT 4: Featured playlists
     console.log('Fetching featured playlists...');
     const featuredResponse = await fetch(
-      `https://api.spotify.com/v1/browse/featured-playlists?country=${marketCode}&limit=10`,
+      `https://api.spotify.com/v1/browse/featured-playlists?country=${marketCode}&limit=20`,
       { headers: { 'Authorization': `Bearer ${clientToken}` } }
     );
 
@@ -194,7 +212,6 @@ serve(async (req) => {
       const featuredData = await featuredResponse.json();
       const featuredPlaylists = featuredData.playlists?.items || [];
       
-      // Try to find a hits/trending playlist
       for (const playlist of featuredPlaylists) {
         if (playlist?.tracks?.total >= 20) {
           console.log(`Trying featured playlist: "${playlist.name}"`);
@@ -214,27 +231,35 @@ serve(async (req) => {
       }
     }
 
-    // FINAL FALLBACK: Category playlists (top lists)
-    console.log('Fetching category playlists as final fallback...');
-    const categoryResponse = await fetch(
-      `https://api.spotify.com/v1/browse/categories/toplists/playlists?country=${marketCode}&limit=10`,
+    // ATTEMPT 5: Search for chart playlists (last resort)
+    console.log('Searching for chart playlists as last resort...');
+    const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
+    const currentYear = new Date().getFullYear();
+    const searchQuery = encodeURIComponent(`Top 50 ${countryName} ${currentMonth} ${currentYear}`);
+    
+    const searchResponse = await fetch(
+      `https://api.spotify.com/v1/search?q=${searchQuery}&type=playlist&limit=20&market=${marketCode}`,
       { headers: { 'Authorization': `Bearer ${clientToken}` } }
     );
 
-    if (categoryResponse.ok) {
-      const categoryData = await categoryResponse.json();
-      const categoryPlaylists = categoryData.playlists?.items || [];
+    if (searchResponse.ok) {
+      const searchData = await searchResponse.json();
+      const playlists = searchData.playlists?.items || [];
       
-      for (const playlist of categoryPlaylists) {
-        if (playlist?.id) {
-          console.log(`Trying category playlist: "${playlist.name}"`);
+      // Sort by follower count (approximated by total tracks for now)
+      for (const playlist of playlists) {
+        if (playlist?.tracks?.total >= 20 && 
+            (playlist.name?.toLowerCase().includes('top') || 
+             playlist.name?.toLowerCase().includes('chart') ||
+             playlist.name?.toLowerCase().includes('hits'))) {
+          console.log(`Trying search result: "${playlist.name}" by ${playlist.owner?.display_name}`);
           const playlistItems = await fetchPlaylist(clientToken, playlist.id, marketCode);
           if (playlistItems && playlistItems.length >= 10) {
-            console.log(`SUCCESS with category playlist! Got ${playlistItems.length} tracks`);
+            console.log(`SUCCESS with search! Got ${playlistItems.length} tracks`);
             return new Response(JSON.stringify({ 
               tracks: extractTracks(playlistItems), 
               country, 
-              source: 'toplists', 
+              source: 'search', 
               playlist: playlist.name 
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -250,7 +275,7 @@ serve(async (req) => {
       tracks: [], 
       country, 
       source: 'none',
-      error: 'Unable to fetch chart data' 
+      error: 'Unable to fetch chart data - Spotify editorial playlists are not accessible via API' 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

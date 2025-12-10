@@ -68,6 +68,22 @@ export function useSpotify() {
       setAccessToken(storedToken);
       setIsConnected(true);
     }
+
+    // Listen for auth completion from popup window
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'spotify-auth-complete' && event.data.success) {
+        // Refresh state from localStorage
+        const token = localStorage.getItem('spotify_access_token');
+        const expiry = localStorage.getItem('spotify_token_expiry');
+        if (token && expiry && Date.now() < parseInt(expiry)) {
+          setAccessToken(token);
+          setIsConnected(true);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const connect = useCallback(async () => {
@@ -81,7 +97,24 @@ export function useSpotify() {
 
       if (error) throw error;
       
-      window.location.href = data.authUrl;
+      // Open in new window/tab to avoid iframe blocking
+      const width = 500;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      const popup = window.open(
+        data.authUrl,
+        'spotify-auth',
+        `width=${width},height=${height},left=${left},top=${top},popup=1`
+      );
+      
+      if (!popup) {
+        // If popup blocked, try regular navigation
+        window.open(data.authUrl, '_blank');
+      }
+      
+      setIsLoading(false);
     } catch (error) {
       console.error('Spotify connect error:', error);
       toast.error('Failed to connect to Spotify');

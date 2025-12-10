@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +28,9 @@ import {
 import { useDataset } from "@/hooks/useDataset";
 import { useSpotify } from "@/hooks/useSpotify";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Music, Loader2, User, LogOut, RefreshCw, TrendingUp, Disc, Clock, Users, Zap, Activity, Heart } from "lucide-react";
+import { Music, Loader2, User, LogOut, RefreshCw, TrendingUp, Disc, Clock, Users, Zap, Activity, Heart, ListMusic, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const genreColors = [
   "#1DB954", "#1E90FF", "#FF6B9D", "#FFD700", "#FF8C00",
@@ -36,7 +39,46 @@ const genreColors = [
 
 const Dashboard = () => {
   const { loading: datasetLoading, error: datasetError, stats: datasetStats } = useDataset();
-  const { isConnected, isLoading: spotifyLoading, spotifyData, connect, disconnect, fetchData } = useSpotify();
+  const { isConnected, isLoading: spotifyLoading, spotifyData, accessToken, connect, disconnect, fetchData } = useSpotify();
+  const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+
+  const createRecommendedPlaylist = async () => {
+    if (!accessToken) {
+      toast.error('Please connect to Spotify first');
+      return;
+    }
+
+    try {
+      setIsCreatingPlaylist(true);
+      toast.info('Creating your personalized playlist...');
+
+      const { data, error } = await supabase.functions.invoke('create-playlist', {
+        body: { 
+          access_token: accessToken,
+          playlist_name: `TrendTracks For You - ${new Date().toLocaleDateString()}`,
+          num_tracks: 30
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`Playlist created with ${data.tracks_added} tracks!`, {
+          action: data.playlist_url ? {
+            label: 'Open in Spotify',
+            onClick: () => window.open(data.playlist_url, '_blank')
+          } : undefined
+        });
+      } else {
+        throw new Error(data.error || 'Failed to create playlist');
+      }
+    } catch (error) {
+      console.error('Create playlist error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create playlist');
+    } finally {
+      setIsCreatingPlaylist(false);
+    }
+  };
 
   const getCombinedAudioFeatures = () => {
     if (!datasetStats) return [];
@@ -460,6 +502,33 @@ const Dashboard = () => {
               </div>
             ) : spotifyData && (
               <div className="space-y-6">
+                {/* Create Playlist CTA */}
+                <Card className="bg-gradient-to-r from-[#1DB954]/30 via-purple-500/20 to-pink-500/20 border-[#1DB954]/40">
+                  <CardContent className="flex flex-col md:flex-row items-center justify-between gap-4 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-full bg-[#1DB954]/20">
+                        <Sparkles className="w-8 h-8 text-[#1DB954]" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">Get Personalized Recommendations</h3>
+                        <p className="text-sm text-muted-foreground">Create a playlist based on your listening habits</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={createRecommendedPlaylist} 
+                      disabled={isCreatingPlaylist}
+                      className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-semibold"
+                    >
+                      {isCreatingPlaylist ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <ListMusic className="w-4 h-4 mr-2" />
+                      )}
+                      {isCreatingPlaylist ? 'Creating...' : 'Create Playlist'}
+                    </Button>
+                  </CardContent>
+                </Card>
+
                 {/* Top Stats Row */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">

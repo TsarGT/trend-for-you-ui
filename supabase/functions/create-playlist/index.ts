@@ -519,6 +519,16 @@ serve(async (req) => {
     }
     
     console.log(`Matched ${userTracksWithFeatures.length} of ${userTopTracks.length} user tracks with dataset`);
+    
+    // DEBUG: Log sample user tracks that didn't match
+    if (userTracksWithFeatures.length === 0) {
+      console.log('Sample user tracks that did not match:');
+      for (const userTrack of userTopTracks.slice(0, 5)) {
+        const artistName = userTrack.artists?.[0]?.name || '';
+        const trackName = userTrack.name || '';
+        console.log(`  - "${trackName}" by "${artistName}"`);
+      }
+    }
 
     // Step 5: Get genres - either from matched tracks OR from Spotify artist data
     let userGenres: string[] = [];
@@ -573,6 +583,12 @@ serve(async (req) => {
       }
       
       console.log(`Mapped to dataset genres: ${userGenres.join(', ')}`);
+      
+      // DEBUG: If no genres mapped, log what we had
+      if (userGenres.length === 0) {
+        console.log('No genres mapped. Artist genres from Spotify were:');
+        console.log(allArtistGenres.slice(0, 20).join(', '));
+      }
     }
 
     // If still no genres, use popular fallback genres
@@ -592,6 +608,16 @@ serve(async (req) => {
     console.log('Building KMeans clusters per genre...');
     const genreModels = buildKMeansPerGenre(userGenres, normalizedData, 15, 100);
     console.log(`Built models for ${genreModels.size} genres`);
+    
+    // DEBUG: Log which genres got models
+    if (genreModels.size > 0) {
+      for (const [genre, model] of genreModels) {
+        console.log(`  - ${genre}: ${model.clusters.size} clusters, ${model.genreTracks.length} total tracks`);
+      }
+    } else {
+      console.log('WARNING: No genre models were built!');
+      console.log('User genres attempted:', userGenres);
+    }
 
     // Step 7: Get all known track IDs from user's playlists to exclude
     console.log('Fetching user playlist tracks to exclude...');
@@ -638,6 +664,19 @@ serve(async (req) => {
     }
 
     console.log(`Generated ${allRecommendations.size} unique recommendations`);
+    
+    // DEBUG: If no recommendations, explain why
+    if (allRecommendations.size === 0) {
+      console.log('No recommendations generated because:');
+      if (userTracksWithFeatures.length === 0) {
+        console.log('  - No user tracks matched the dataset');
+      }
+      if (genreModels.size === 0) {
+        console.log('  - No KMeans models were built');
+      }
+      console.log('  - Genres attempted:', userGenres);
+      console.log('  - Known track IDs to exclude:', knownTrackIds.size);
+    }
 
     // Sort by popularity and take top N
     const sortedRecommendations = [...allRecommendations.values()]
@@ -648,7 +687,19 @@ serve(async (req) => {
 
     if (sortedRecommendations.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'Could not generate recommendations based on your listening history' }),
+        JSON.stringify({ 
+          error: 'Could not generate recommendations based on your listening history',
+          debug: {
+            user_top_tracks: userTopTracks.length,
+            matched_tracks: userTracksWithFeatures.length,
+            genres_found: userGenres,
+            genre_models_built: genreModels.size,
+            sample_user_tracks: userTopTracks.slice(0, 5).map((t: any) => ({
+              name: t.name,
+              artist: t.artists?.[0]?.name
+            }))
+          }
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -35,7 +35,18 @@ const Index = () => {
     const fetchTop50 = async () => {
       try {
         setIsLoading(true);
-        const { data, error } = await supabase.functions.invoke('spotify-top50');
+        
+        // Get user's Spotify token if available
+        const storedToken = localStorage.getItem('spotify_access_token');
+        const tokenExpiry = localStorage.getItem('spotify_token_expiry');
+        const hasValidToken = storedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry);
+        
+        const { data, error } = await supabase.functions.invoke('spotify-top50', {
+          body: { 
+            country: selectedCountry,
+            access_token: hasValidToken ? storedToken : undefined
+          }
+        });
         
         if (error) {
           console.error('Error fetching Top 50:', error);
@@ -53,7 +64,7 @@ const Index = () => {
     };
 
     fetchTop50();
-  }, []);
+  }, [selectedCountry]);
 
   // Mock data for Genre tracks (can be replaced with real data later)
   const genreTracks = {

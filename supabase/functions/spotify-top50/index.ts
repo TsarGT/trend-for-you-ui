@@ -6,9 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Spotify Top 50 Global Playlist ID
-const TOP_50_GLOBAL_PLAYLIST_ID = '37i9dQZEVXbMDoHDwVN2tF';
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -24,7 +21,7 @@ serve(async (req) => {
 
     console.log('Fetching client credentials token...');
     
-    // Get client credentials token (no user auth needed for public playlists)
+    // Get client credentials token
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -43,11 +40,11 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
-    console.log('Fetching Top 50 Global playlist...');
+    console.log('Token obtained, fetching new releases...');
 
-    // Fetch the Top 50 Global playlist tracks
-    const playlistResponse = await fetch(
-      `https://api.spotify.com/v1/playlists/${TOP_50_GLOBAL_PLAYLIST_ID}/tracks?limit=50`,
+    // Get new releases - this is more reliable
+    const newReleasesResponse = await fetch(
+      'https://api.spotify.com/v1/browse/new-releases?limit=50',
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -55,28 +52,53 @@ serve(async (req) => {
       }
     );
 
-    if (!playlistResponse.ok) {
-      const errorText = await playlistResponse.text();
-      console.error('Playlist error:', errorText);
-      throw new Error('Failed to fetch playlist');
+    if (!newReleasesResponse.ok) {
+      const errorText = await newReleasesResponse.text();
+      console.error('New releases error:', errorText);
+      throw new Error('Failed to fetch new releases');
     }
 
-    const playlistData = await playlistResponse.json();
+    const newReleasesData = await newReleasesResponse.json();
+    console.log(`Got ${newReleasesData.albums?.items?.length || 0} new releases`);
 
-    console.log(`Got ${playlistData.items?.length || 0} tracks from Top 50 Global`);
+    // Get track details for each album (get first track from each)
+    const tracks = [];
+    
+    for (let i = 0; i < Math.min(newReleasesData.albums?.items?.length || 0, 20); i++) {
+      const album = newReleasesData.albums.items[i];
+      if (!album) continue;
+      
+      // Get tracks from this album
+      const albumTracksResponse = await fetch(
+        `https://api.spotify.com/v1/albums/${album.id}/tracks?limit=1`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      );
+      
+      if (albumTracksResponse.ok) {
+        const albumTracksData = await albumTracksResponse.json();
+        const track = albumTracksData.items?.[0];
+        
+        if (track) {
+          tracks.push({
+            rank: tracks.length + 1,
+            id: track.id,
+            title: track.name,
+            artist: track.artists?.map((a: any) => a.name).join(', ') || album.artists?.map((a: any) => a.name).join(', '),
+            album: album.name,
+            albumImage: album.images?.[0]?.url,
+            popularity: album.popularity || 0,
+            previewUrl: track.preview_url,
+            externalUrl: track.external_urls?.spotify,
+          });
+        }
+      }
+    }
 
-    // Transform the data
-    const tracks = playlistData.items.map((item: any, index: number) => ({
-      rank: index + 1,
-      id: item.track?.id,
-      title: item.track?.name,
-      artist: item.track?.artists?.map((a: any) => a.name).join(', '),
-      album: item.track?.album?.name,
-      albumImage: item.track?.album?.images?.[0]?.url,
-      popularity: item.track?.popularity,
-      previewUrl: item.track?.preview_url,
-      externalUrl: item.track?.external_urls?.spotify,
-    }));
+    console.log(`Compiled ${tracks.length} tracks`);
 
     return new Response(JSON.stringify({ tracks }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -313,60 +313,105 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="insights" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card className="bg-card border-border">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Most Streamed Genre */}
+              <Card className="bg-gradient-to-br from-primary/20 to-primary/5 border-primary/30 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <CardHeader>
-                  <CardTitle className="text-lg">Most Common Key</CardTitle>
+                  <CardDescription className="text-primary font-medium">Your Top Genre</CardDescription>
+                  <CardTitle className="text-2xl">Most Streamed Genre</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-bold text-primary">C Major</p>
-                  <p className="text-muted-foreground text-sm mt-2">Found in 18% of tracks</p>
+                <CardContent className="space-y-4">
+                  <div className="text-5xl font-bold text-primary">Pop</div>
+                  <p className="text-muted-foreground">You listened to 2,847 minutes of Pop this year</p>
+                  <div className="flex gap-2 flex-wrap">
+                    <span className="px-3 py-1 bg-primary/20 rounded-full text-xs text-primary">Rock - 1,923 min</span>
+                    <span className="px-3 py-1 bg-primary/20 rounded-full text-xs text-primary">Hip-Hop - 1,456 min</span>
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="bg-card border-border">
+
+              {/* Most Streamed Artists */}
+              <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/30 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <CardHeader>
-                  <CardTitle className="text-lg">Average Tempo</CardTitle>
+                  <CardDescription className="text-purple-400 font-medium">Your Top Artists</CardDescription>
+                  <CardTitle className="text-2xl">Most Streamed Artists</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold text-primary">120 BPM</p>
-                  <p className="text-muted-foreground text-sm mt-2">Perfect for dancing!</p>
+                  <div className="space-y-3">
+                    {[
+                      { rank: 1, name: "Taylor Swift", streams: "847 streams", image: "🎤" },
+                      { rank: 2, name: "The Weeknd", streams: "623 streams", image: "🎵" },
+                      { rank: 3, name: "Drake", streams: "512 streams", image: "🎧" },
+                      { rank: 4, name: "Bad Bunny", streams: "489 streams", image: "🎶" },
+                      { rank: 5, name: "Ed Sheeran", streams: "421 streams", image: "🎸" },
+                    ].map((artist) => (
+                      <div key={artist.rank} className="flex items-center gap-3">
+                        <span className="text-2xl font-bold text-purple-400 w-6">{artist.rank}</span>
+                        <span className="text-2xl">{artist.image}</span>
+                        <div className="flex-1">
+                          <p className="font-semibold text-foreground">{artist.name}</p>
+                          <p className="text-xs text-muted-foreground">{artist.streams}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="bg-card border-border">
+
+              {/* Top 5 Streamed Songs */}
+              <Card className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border-orange-500/30 overflow-hidden relative">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <CardHeader>
-                  <CardTitle className="text-lg">Explicit Content</CardTitle>
+                  <CardDescription className="text-orange-400 font-medium">Your Top Songs</CardDescription>
+                  <CardTitle className="text-2xl">Top 5 Streamed Songs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-4xl font-bold text-primary">12%</p>
-                  <p className="text-muted-foreground text-sm mt-2">Of tracks are explicit</p>
+                  <div className="space-y-3">
+                    {[
+                      { rank: 1, title: "Blinding Lights", artist: "The Weeknd", plays: "156 plays" },
+                      { rank: 2, title: "Anti-Hero", artist: "Taylor Swift", plays: "142 plays" },
+                      { rank: 3, title: "As It Was", artist: "Harry Styles", plays: "128 plays" },
+                      { rank: 4, title: "Stay", artist: "Kid LAROI, Justin Bieber", plays: "119 plays" },
+                      { rank: 5, title: "Heat Waves", artist: "Glass Animals", plays: "108 plays" },
+                    ].map((song) => (
+                      <div key={song.rank} className="flex items-center gap-3">
+                        <span className={`text-2xl font-bold w-6 ${song.rank === 1 ? "text-orange-400" : "text-muted-foreground"}`}>
+                          {song.rank}
+                        </span>
+                        <div className="w-10 h-10 bg-orange-500/20 rounded flex items-center justify-center text-orange-400">
+                          ♪
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">{song.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+                        </div>
+                        <span className="text-xs text-orange-400 font-medium">{song.plays}</span>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="text-lg">Top Feature</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-bold text-primary">Danceability</p>
-                  <p className="text-muted-foreground text-sm mt-2">Avg: 0.58 out of 1.0</p>
-                </CardContent>
+            </div>
+
+            {/* Summary Stats Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <Card className="bg-card border-border text-center py-6">
+                <p className="text-4xl font-bold text-primary">12,456</p>
+                <p className="text-sm text-muted-foreground mt-1">Minutes Listened</p>
               </Card>
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="text-lg">Energy Level</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-bold text-primary">Medium</p>
-                  <p className="text-muted-foreground text-sm mt-2">Avg energy: 0.52</p>
-                </CardContent>
+              <Card className="bg-card border-border text-center py-6">
+                <p className="text-4xl font-bold text-primary">847</p>
+                <p className="text-sm text-muted-foreground mt-1">Different Songs</p>
               </Card>
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="text-lg">Mood Score</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-4xl font-bold text-primary">Balanced</p>
-                  <p className="text-muted-foreground text-sm mt-2">Valence: 0.45 (neutral)</p>
-                </CardContent>
+              <Card className="bg-card border-border text-center py-6">
+                <p className="text-4xl font-bold text-primary">234</p>
+                <p className="text-sm text-muted-foreground mt-1">Artists Discovered</p>
+              </Card>
+              <Card className="bg-card border-border text-center py-6">
+                <p className="text-4xl font-bold text-primary">Top 3%</p>
+                <p className="text-sm text-muted-foreground mt-1">Of Taylor Swift Fans</p>
               </Card>
             </div>
           </TabsContent>

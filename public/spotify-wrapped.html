@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Wrapped - Your Year in Music</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #121212 0%, #1a1a2e 100%);
+      color: #f0f0f0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #1DB954, #1ed760);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #a0a0a0;
+      margin-bottom: 40px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      background: rgba(30, 30, 30, 0.8);
+      border-radius: 16px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      opacity: 0.1;
+    }
+
+    .card-genre::before { background: #1DB954; }
+    .card-artists::before { background: #a855f7; }
+    .card-songs::before { background: #f97316; }
+
+    .card-label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .card-genre .card-label { color: #1DB954; }
+    .card-artists .card-label { color: #a855f7; }
+    .card-songs .card-label { color: #f97316; }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .highlight {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .card-genre .highlight { color: #1DB954; }
+
+    .card-description {
+      color: #a0a0a0;
+      font-size: 0.875rem;
+      margin-bottom: 16px;
+    }
+
+    .tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tag {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+    }
+
+    .card-genre .tag {
+      background: rgba(29, 185, 84, 0.2);
+      color: #1DB954;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+    }
+
+    .rank {
+      font-size: 1.5rem;
+      font-weight: 700;
+      width: 24px;
+    }
+
+    .card-artists .rank { color: #a855f7; }
+    .card-songs .rank { color: #f97316; }
+    .card-songs .rank.top { color: #f97316; }
+
+    .emoji {
+      font-size: 1.5rem;
+    }
+
+    .song-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .card-songs .song-icon {
+      background: rgba(249, 115, 22, 0.2);
+      color: #f97316;
+    }
+
+    .item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-detail {
+      font-size: 0.75rem;
+      color: #a0a0a0;
+    }
+
+    .play-count {
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .card-songs .play-count { color: #f97316; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: rgba(30, 30, 30, 0.8);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1DB954;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: #a0a0a0;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.75rem;
+      }
+
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .highlight {
+        font-size: 2.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Your 2024 Wrapped</h1>
+    <p class="subtitle">Your year in music, all wrapped up</p>
+
+    <div class="cards-grid">
+      <!-- Most Streamed Genre -->
+      <div class="card card-genre">
+        <p class="card-label">Your Top Genre</p>
+        <h2 class="card-title">Most Streamed Genre</h2>
+        <div class="highlight">Pop</div>
+        <p class="card-description">You listened to 2,847 minutes of Pop this year</p>
+        <div class="tags">
+          <span class="tag">Rock - 1,923 min</span>
+          <span class="tag">Hip-Hop - 1,456 min</span>
+        </div>
+      </div>
+
+      <!-- Most Streamed Artists -->
+      <div class="card card-artists">
+        <p class="card-label">Your Top Artists</p>
+        <h2 class="card-title">Most Streamed Artists</h2>
+        <div class="list-item">
+          <span class="rank">1</span>
+          <span class="emoji">🎤</span>
+          <div class="item-info">
+            <p class="item-name">Taylor Swift</p>
+            <p class="item-detail">847 streams</p>
+          </div>
+        </div>
+        <div class="list-item">
+          <span class="rank">2</span>
+          <span class="emoji">🎵</span>
+          <div class="item-info">
+            <p class="item-name">The Weeknd</p>
+            <p class="item-detail">623 streams</p>
+          </div>
+        </div>
+        <div class="list-item">
+          <span class="rank">3</span>
+          <span class="emoji">🎧</span>
+          <div class="item-info">
+            <p class="item-name">Drake</p>
+            <p class="item-detail">512 streams</p>
+          </div>
+        </div>
+        <div class="list-item">
+          <span class="rank">4</span>
+          <span class="emoji">🎶</span>
+          <div class="item-info">
+            <p class="item-name">Bad Bunny</p>
+            <p class="item-detail">489 streams</p>
+          </div>
+        </div>
+        <div class="list-item">
+          <span class="rank">5</span>
+          <span class="emoji">🎸</span>
+          <div class="item-info">
+            <p class="item-name">Ed Sheeran</p>
+            <p class="item-detail">421 streams</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top 5 Songs -->
+      <div class="card card-songs">
+        <p class="card-label">Your Top Songs</p>
+        <h2 class="card-title">Top 5 Streamed Songs</h2>
+        <div class="list-item">
+          <span class="rank top">1</span>
+          <div class="song-icon">♪</div>
+          <div class="item-info">
+            <p class="item-name">Blinding Lights</p>
+            <p class="item-detail">The Weeknd</p>
+          </div>
+          <span class="play-count">156 plays</span>
+        </div>
+        <div class="list-item">
+          <span class="rank">2</span>
+          <div class="song-icon">♪</div>
+          <div class="item-info">
+            <p class="item-name">Anti-Hero</p>
+            <p class="item-detail">Taylor Swift</p>
+          </div>
+          <span class="play-count">142 plays</span>
+        </div>
+        <div class="list-item">
+          <span class="rank">3</span>
+          <div class="song-icon">♪</div>
+          <div class="item-info">
+            <p class="item-name">As It Was</p>
+            <p class="item-detail">Harry Styles</p>
+          </div>
+          <span class="play-count">128 plays</span>
+        </div>
+        <div class="list-item">
+          <span class="rank">4</span>
+          <div class="song-icon">♪</div>
+          <div class="item-info">
+            <p class="item-name">Stay</p>
+            <p class="item-detail">Kid LAROI, Justin Bieber</p>
+          </div>
+          <span class="play-count">119 plays</span>
+        </div>
+        <div class="list-item">
+          <span class="rank">5</span>
+          <div class="song-icon">♪</div>
+          <div class="item-info">
+            <p class="item-name">Heat Waves</p>
+            <p class="item-detail">Glass Animals</p>
+          </div>
+          <span class="play-count">108 plays</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">12,456</div>
+        <div class="stat-label">Minutes Listened</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">847</div>
+        <div class="stat-label">Different Songs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">234</div>
+        <div class="stat-label">Artists Discovered</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">Top 3%</div>
+        <div class="stat-label">Of Taylor Swift Fans</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

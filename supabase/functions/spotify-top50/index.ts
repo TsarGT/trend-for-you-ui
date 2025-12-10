@@ -29,7 +29,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { country = 'global', access_token: userAccessToken } = body;
     
-    console.log(`Request received - country: ${country}, has user token: ${!!userAccessToken}`);
+    const playlistId = TOP_50_PLAYLISTS[country.toLowerCase()] || TOP_50_PLAYLISTS.global;
+    console.log(`Request - country: ${country}, playlistId: ${playlistId}, hasToken: ${!!userAccessToken}`);
     
     const SPOTIFY_CLIENT_ID = Deno.env.get('SPOTIFY_CLIENT_ID');
     const SPOTIFY_CLIENT_SECRET = Deno.env.get('SPOTIFY_CLIENT_SECRET');
@@ -38,104 +39,59 @@ serve(async (req) => {
       throw new Error('Spotify credentials not configured');
     }
 
-    // Get the playlist ID for the selected country
-    const playlistId = TOP_50_PLAYLISTS[country.toLowerCase()] || TOP_50_PLAYLISTS.global;
-
-    // If we have a user token, try multiple approaches to get charts
+    // Try with user token first - direct playlist fetch
     if (userAccessToken) {
-      console.log(`Trying to get Top 50 for country: ${country} with user token...`);
-      
       try {
-        // First verify the token works by getting user profile
         const profileResponse = await fetch('https://api.spotify.com/v1/me', {
           headers: { 'Authorization': `Bearer ${userAccessToken}` },
         });
         
-        if (!profileResponse.ok) {
-          console.error('Token invalid, status:', profileResponse.status);
-        } else {
+        if (profileResponse.ok) {
           const profile = await profileResponse.json();
           const market = profile.country || 'US';
-          console.log(`User market: ${market}`);
+          console.log(`User market: ${market}, fetching playlist ${playlistId} directly`);
           
-          // Try searching for Top 50 playlists
-          const countryNames: Record<string, string> = {
-            'global': 'Global',
-            'us': 'USA',
-            'uk': 'UK',
-            'germany': 'Germany',
-            'france': 'France',
-            'spain': 'Spain',
-            'italy': 'Italy',
-            'brazil': 'Brazil',
-            'japan': 'Japan',
-            'russia': 'Russia',
-          };
-          const countryName = countryNames[country.toLowerCase()] || 'Global';
-          
-          const searchQuery = encodeURIComponent(`Top 50 ${countryName}`);
-          const searchResponse = await fetch(
-            `https://api.spotify.com/v1/search?q=${searchQuery}&type=playlist&limit=10&market=${market}`,
+          // Direct fetch using predefined playlist ID
+          const tracksResponse = await fetch(
+            `https://api.spotify.com/v1/playlists/${playlistId}/tracks?market=${market}&limit=50`,
             {
               headers: { 'Authorization': `Bearer ${userAccessToken}` },
             }
           );
           
-          if (searchResponse.ok) {
-            const searchData = await searchResponse.json();
-            console.log(`Search found ${searchData.playlists?.items?.length || 0} playlists`);
+          if (tracksResponse.ok) {
+            const tracksData = await tracksResponse.json();
+            console.log(`SUCCESS! Got ${tracksData.items?.length || 0} tracks from Top 50`);
             
-            // Find a playlist that looks like an official chart
-            const chartPlaylist = searchData.playlists?.items?.find((p: any) => 
-              p.owner?.id === 'spotify' && 
-              (p.name?.toLowerCase().includes('top 50') || p.name?.toLowerCase().includes('viral'))
-            );
-            
-            if (chartPlaylist) {
-              console.log(`Found chart playlist: ${chartPlaylist.name} by ${chartPlaylist.owner?.id}`);
-              
-              const tracksResponse = await fetch(
-                `https://api.spotify.com/v1/playlists/${chartPlaylist.id}/tracks?market=${market}&limit=50`,
-                {
-                  headers: { 'Authorization': `Bearer ${userAccessToken}` },
-                }
-              );
-              
-              if (tracksResponse.ok) {
-                const tracksData = await tracksResponse.json();
-                console.log(`SUCCESS! Got ${tracksData.items?.length || 0} tracks from ${chartPlaylist.name}`);
-                
-                const tracks = tracksData.items?.map((item: any, index: number) => ({
-                  rank: index + 1,
-                  id: item.track?.id,
-                  title: item.track?.name,
-                  artist: item.track?.artists?.map((a: any) => a.name).join(', '),
-                  album: item.track?.album?.name,
-                  albumImage: item.track?.album?.images?.[0]?.url,
-                  popularity: item.track?.popularity,
-                })).filter((t: any) => t.id) || [];
+            const tracks = tracksData.items?.map((item: any, index: number) => ({
+              rank: index + 1,
+              id: item.track?.id,
+              title: item.track?.name,
+              artist: item.track?.artists?.map((a: any) => a.name).join(', '),
+              album: item.track?.album?.name,
+              albumImage: item.track?.album?.images?.[0]?.url,
+              popularity: item.track?.popularity,
+            })).filter((t: any) => t.id) || [];
 
-                return new Response(JSON.stringify({ 
-                  tracks, 
-                  country, 
-                  source: 'top50', 
-                  playlist: chartPlaylist.name 
-                }), {
-                  headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                });
-              }
-            } else {
-              console.log('No official Spotify chart playlist found in search results');
-            }
+            return new Response(JSON.stringify({ 
+              tracks, 
+              country, 
+              source: 'top50',
+              playlist: `Top 50 - ${country}`
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } else {
+            console.error(`Playlist fetch failed: ${tracksResponse.status}`);
           }
         }
       } catch (fetchError: any) {
-        console.error(`Fetch error: ${fetchError.message}`);
+        console.error(`User token fetch error: ${fetchError.message}`);
       }
     }
     
-    // Fallback: Get client credentials token and fetch new releases
-    console.log('Getting client credentials token for fallback...');
+    // Fallback: client credentials + new releases
+    console.log('Falling back to client credentials...');
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
@@ -152,8 +108,6 @@ serve(async (req) => {
     const tokenData = await tokenResponse.json();
     const clientToken = tokenData.access_token;
 
-    // Get new releases as fallback
-    console.log('Fetching new releases as fallback...');
     const newReleasesResponse = await fetch(
       `https://api.spotify.com/v1/browse/new-releases?limit=20`,
       {

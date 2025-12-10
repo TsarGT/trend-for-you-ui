@@ -5,8 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Dataset URL - using the public CSV
-const DATASET_URL = 'https://120fcb9f-fc72-47a4-8533-a7a3545ec8ce.lovableproject.com/data/dataset.csv';
+// Dataset URLs - try multiple sources
+const DATASET_URLS = [
+  'https://120fcb9f-fc72-47a4-8533-a7a3545ec8ce.lovableproject.com/data/dataset.csv',
+  'https://raw.githubusercontent.com/lovable-dev/120fcb9f-fc72-47a4-8533-a7a3545ec8ce/main/public/data/dataset.csv',
+];
 
 interface Track {
   track_id: string;
@@ -234,6 +237,196 @@ async function fetchWithAuth(url: string, accessToken: string) {
   return response;
 }
 
+// Fallback: Use Spotify's recommendations API directly
+async function createPlaylistWithSpotifyRecs(
+  accessToken: string,
+  playlistName: string,
+  numTracks: number
+) {
+  console.log('Using Spotify recommendations API fallback...');
+  
+  // Get user info
+  const userResponse = await fetchWithAuth('https://api.spotify.com/v1/me', accessToken);
+  const userData = await userResponse.json();
+  
+  // Get top tracks
+  const topTracksResponse = await fetchWithAuth(
+    'https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=medium_term',
+    accessToken
+  );
+  const topTracksData = await topTracksResponse.json();
+  const userTopTracks = topTracksData.items || [];
+  
+  if (userTopTracks.length === 0) {
+    return new Response(
+      JSON.stringify({ error: 'No top tracks found. Listen to more music on Spotify!' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  // Get artists from top tracks for artist seeds
+  const topArtistIds = [...new Set(userTopTracks.flatMap((t: any) => 
+    t.artists.map((a: any) => a.id)
+  ))].slice(0, 4);
+  
+  // Use first track and top artists as seeds
+  const seedTracks = userTopTracks.slice(0, 1).map((t: any) => t.id);
+  
+  console.log('Seed tracks:', seedTracks);
+  console.log('Seed artists:', topArtistIds);
+  
+  // Try to get recommendations
+  let recommendedTracks: any[] = [];
+  const excludeIds = new Set(userTopTracks.map((t: any) => t.id));
+  
+  // Strategy 1: Use seed tracks and artists
+  const recsUrl = `https://api.spotify.com/v1/recommendations?seed_tracks=${seedTracks.join(',')}&seed_artists=${topArtistIds.join(',')}&limit=100`;
+  console.log('Fetching recommendations...');
+  
+  const recsResponse = await fetchWithAuth(recsUrl, accessToken);
+  if (recsResponse.ok) {
+    const recsData = await recsResponse.json();
+    recommendedTracks = (recsData.tracks || []).filter((t: any) => !excludeIds.has(t.id));
+    console.log(`Got ${recommendedTracks.length} recommendations from Spotify API`);
+  }
+  
+  // Strategy 2: Get top tracks from related artists if not enough
+  if (recommendedTracks.length < numTracks) {
+    console.log('Getting tracks from top artists...');
+    for (const artistId of topArtistIds.slice(0, 3)) {
+      try {
+        const artistTopResponse = await fetchWithAuth(
+          `https://api.spotify.com/v1/artists/${artistId}/top-tracks?market=US`,
+          accessToken
+        );
+        if (artistTopResponse.ok) {
+          const artistTopData = await artistTopResponse.json();
+          for (const track of artistTopData.tracks || []) {
+            if (!excludeIds.has(track.id) && !recommendedTracks.find((t: any) => t.id === track.id)) {
+              recommendedTracks.push(track);
+              excludeIds.add(track.id);
+            }
+          }
+        }
+      } catch (e) {
+        console.log('Error getting artist tracks:', e);
+      }
+    }
+    console.log(`Now have ${recommendedTracks.length} tracks after artist top tracks`);
+  }
+  
+  // Strategy 3: Get tracks from related artists
+  if (recommendedTracks.length < numTracks) {
+    console.log('Getting related artists...');
+    for (const artistId of topArtistIds.slice(0, 2)) {
+      try {
+        const relatedResponse = await fetchWithAuth(
+          `https://api.spotify.com/v1/artists/${artistId}/related-artists`,
+          accessToken
+        );
+        if (relatedResponse.ok) {
+          const relatedData = await relatedResponse.json();
+          for (const artist of (relatedData.artists || []).slice(0, 3)) {
+            const artistTopResponse = await fetchWithAuth(
+              `https://api.spotify.com/v1/artists/${artist.id}/top-tracks?market=US`,
+              accessToken
+            );
+            if (artistTopResponse.ok) {
+              const artistTopData = await artistTopResponse.json();
+              for (const track of (artistTopData.tracks || []).slice(0, 5)) {
+                if (!excludeIds.has(track.id) && !recommendedTracks.find((t: any) => t.id === track.id)) {
+                  recommendedTracks.push(track);
+                  excludeIds.add(track.id);
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.log('Error getting related artists:', e);
+      }
+    }
+    console.log(`Now have ${recommendedTracks.length} tracks after related artists`);
+  }
+  
+  if (recommendedTracks.length === 0) {
+    return new Response(
+      JSON.stringify({ 
+        error: 'Could not generate recommendations',
+        message: 'Unable to find similar music. Try listening to more varied music!'
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  // Take what we need
+  const finalTracks = recommendedTracks.slice(0, numTracks);
+  
+  // Create playlist
+  const createPlaylistResponse = await fetch(
+    `https://api.spotify.com/v1/users/${userData.id}/playlists`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: playlistName,
+        description: 'Personalized recommendations - Created by TrendTracks',
+        public: false
+      })
+    }
+  );
+  
+  if (!createPlaylistResponse.ok) {
+    const errorText = await createPlaylistResponse.text();
+    console.error('Failed to create playlist:', errorText);
+    return new Response(
+      JSON.stringify({ error: 'Failed to create playlist on Spotify' }),
+      { status: createPlaylistResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  
+  const newPlaylist = await createPlaylistResponse.json();
+  console.log(`Created playlist: ${newPlaylist.id}`);
+  
+  // Add tracks
+  const trackUris = finalTracks.map((t: any) => `spotify:track:${t.id}`);
+  
+  for (let i = 0; i < trackUris.length; i += 100) {
+    const batch = trackUris.slice(i, i + 100);
+    await fetch(
+      `https://api.spotify.com/v1/playlists/${newPlaylist.id}/tracks`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uris: batch })
+      }
+    );
+  }
+  
+  return new Response(
+    JSON.stringify({
+      success: true,
+      playlist_id: newPlaylist.id,
+      playlist_url: newPlaylist.external_urls?.spotify,
+      tracks_added: finalTracks.length,
+      source: 'spotify_api',
+      recommendations: finalTracks.map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        artist: t.artists.map((a: any) => a.name).join(', '),
+        album: t.album.name
+      }))
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -251,15 +444,38 @@ serve(async (req) => {
 
     console.log('Creating playlist:', playlist_name);
 
-    // Fetch dataset
+    // Fetch dataset - try multiple URLs
     console.log('Fetching dataset...');
-    const datasetResponse = await fetch(DATASET_URL);
-    if (!datasetResponse.ok) {
-      throw new Error('Failed to fetch dataset');
+    let allTracks: Track[] = [];
+    let csvText = '';
+    
+    for (const url of DATASET_URLS) {
+      try {
+        console.log(`Trying URL: ${url}`);
+        const datasetResponse = await fetch(url);
+        if (datasetResponse.ok) {
+          csvText = await datasetResponse.text();
+          // Check if we got HTML instead of CSV
+          if (csvText.startsWith('<!DOCTYPE') || csvText.startsWith('<html')) {
+            console.log('Got HTML instead of CSV, trying next URL...');
+            continue;
+          }
+          allTracks = parseCSV(csvText);
+          if (allTracks.length > 0) {
+            console.log(`Loaded ${allTracks.length} tracks from ${url}`);
+            break;
+          }
+        }
+      } catch (e) {
+        console.log(`Failed to fetch from ${url}:`, e);
+      }
     }
-    const csvText = await datasetResponse.text();
-    const allTracks = parseCSV(csvText);
-    console.log(`Loaded ${allTracks.length} tracks from dataset`);
+    
+    // If dataset couldn't be loaded, use Spotify's recommendations API as fallback
+    if (allTracks.length === 0) {
+      console.log('Dataset not available, using Spotify recommendations API...');
+      return await createPlaylistWithSpotifyRecs(access_token, playlist_name, num_tracks);
+    }
 
     // Normalize features
     const { mins, maxs } = normalizeFeatures(allTracks);

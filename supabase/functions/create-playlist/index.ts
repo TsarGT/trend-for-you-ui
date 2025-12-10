@@ -29,11 +29,17 @@ interface Track {
   tempo: number;
 }
 
-interface SpotifyTrack {
+interface SpotifyAudioFeatures {
   id: string;
-  name: string;
-  artists: { name: string }[];
-  album: { name: string };
+  danceability: number;
+  energy: number;
+  loudness: number;
+  speechiness: number;
+  acousticness: number;
+  instrumentalness: number;
+  liveness: number;
+  valence: number;
+  tempo: number;
 }
 
 // Parse CSV dataset
@@ -46,7 +52,6 @@ function parseCSV(csvText: string): Track[] {
     const line = lines[i];
     if (!line.trim()) continue;
     
-    // Handle CSV parsing with potential commas in quoted fields
     const values: string[] = [];
     let current = '';
     let inQuotes = false;
@@ -86,12 +91,11 @@ function parseCSV(csvText: string): Track[] {
   return tracks;
 }
 
-// Normalize features to 0-1 range
-function normalizeFeatures(tracks: Track[]): Map<string, number[]> {
+// Get feature stats from dataset for normalization
+function getFeatureStats(tracks: Track[]): { mins: number[]; maxs: number[] } {
   const mins: number[] = FEATURE_COLS.map(() => Infinity);
   const maxs: number[] = FEATURE_COLS.map(() => -Infinity);
   
-  // Find min/max for each feature
   for (const track of tracks) {
     FEATURE_COLS.forEach((col, i) => {
       const val = (track as any)[col] || 0;
@@ -100,21 +104,18 @@ function normalizeFeatures(tracks: Track[]): Map<string, number[]> {
     });
   }
   
-  // Normalize
-  const normalized = new Map<string, number[]>();
-  for (const track of tracks) {
-    const features = FEATURE_COLS.map((col, i) => {
-      const val = (track as any)[col] || 0;
-      const range = maxs[i] - mins[i];
-      return range > 0 ? (val - mins[i]) / range : 0;
-    });
-    normalized.set(track.track_id, features);
-  }
-  
-  return normalized;
+  return { mins, maxs };
 }
 
-// Calculate cosine similarity between two feature vectors
+// Normalize a single feature vector
+function normalizeVector(features: number[], mins: number[], maxs: number[]): number[] {
+  return features.map((val, i) => {
+    const range = maxs[i] - mins[i];
+    return range > 0 ? (val - mins[i]) / range : 0;
+  });
+}
+
+// Calculate cosine similarity
 function cosineSimilarity(a: number[], b: number[]): number {
   let dotProduct = 0;
   let normA = 0;
@@ -130,68 +131,36 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denominator > 0 ? dotProduct / denominator : 0;
 }
 
-// Get recommendations based on user's top tracks
-function getRecommendations(
-  userTopTrackIds: string[],
+// Get recommendations based on user's audio feature profile
+function getRecommendationsByFeatures(
+  userProfile: number[],
   datasetTracks: Track[],
-  normalizedFeatures: Map<string, number[]>,
+  featureStats: { mins: number[]; maxs: number[] },
   excludeTrackIds: Set<string>,
-  recsPerTrack: number = 5
+  numResults: number = 50
 ): Track[] {
-  const recommendations: Map<string, { track: Track; score: number }> = new Map();
+  const similarities: { track: Track; similarity: number }[] = [];
   
-  // Group dataset tracks by genre for faster lookup
-  const tracksByGenre = new Map<string, Track[]>();
   for (const track of datasetTracks) {
-    const genre = track.track_genre;
-    if (!tracksByGenre.has(genre)) {
-      tracksByGenre.set(genre, []);
-    }
-    tracksByGenre.get(genre)!.push(track);
+    if (excludeTrackIds.has(track.track_id)) continue;
+    
+    const trackFeatures = FEATURE_COLS.map(col => (track as any)[col] || 0);
+    const normalizedTrack = normalizeVector(trackFeatures, featureStats.mins, featureStats.maxs);
+    
+    const similarity = cosineSimilarity(userProfile, normalizedTrack);
+    similarities.push({ track, similarity });
   }
   
-  // For each user top track that exists in dataset
-  for (const userTrackId of userTopTrackIds) {
-    const userTrack = datasetTracks.find(t => t.track_id === userTrackId);
-    if (!userTrack) continue;
-    
-    const userFeatures = normalizedFeatures.get(userTrackId);
-    if (!userFeatures) continue;
-    
-    const genre = userTrack.track_genre;
-    const genreTracks = tracksByGenre.get(genre) || [];
-    
-    // Calculate similarity with all tracks in same genre
-    const similarities: { track: Track; similarity: number }[] = [];
-    for (const candidate of genreTracks) {
-      if (candidate.track_id === userTrackId) continue;
-      if (excludeTrackIds.has(candidate.track_id)) continue;
-      
-      const candidateFeatures = normalizedFeatures.get(candidate.track_id);
-      if (!candidateFeatures) continue;
-      
-      const similarity = cosineSimilarity(userFeatures, candidateFeatures);
-      similarities.push({ track: candidate, similarity });
+  // Sort by similarity, then by popularity for ties
+  similarities.sort((a, b) => {
+    const simDiff = b.similarity - a.similarity;
+    if (Math.abs(simDiff) < 0.01) {
+      return b.track.popularity - a.track.popularity;
     }
-    
-    // Sort by similarity and take top N
-    similarities.sort((a, b) => b.similarity - a.similarity);
-    const topRecs = similarities.slice(0, recsPerTrack);
-    
-    for (const rec of topRecs) {
-      const existing = recommendations.get(rec.track.track_id);
-      if (!existing || rec.similarity > existing.score) {
-        recommendations.set(rec.track.track_id, { track: rec.track, score: rec.similarity });
-      }
-    }
-  }
+    return simDiff;
+  });
   
-  // Convert to array and sort by popularity
-  const result = Array.from(recommendations.values())
-    .map(r => r.track)
-    .sort((a, b) => b.popularity - a.popularity);
-  
-  return result;
+  return similarities.slice(0, numResults).map(s => s.track);
 }
 
 serve(async (req) => {
@@ -234,8 +203,8 @@ serve(async (req) => {
     }
 
     const topTracksData = await topTracksResponse.json();
-    const userTopTracks: SpotifyTrack[] = topTracksData.items || [];
-    const userTopTrackIds = userTopTracks.map(t => t.id);
+    const userTopTracks = topTracksData.items || [];
+    const userTopTrackIds = userTopTracks.map((t: any) => t.id);
     
     console.log(`Found ${userTopTracks.length} top tracks`);
 
@@ -246,7 +215,23 @@ serve(async (req) => {
       );
     }
 
-    // 2. Fetch user's playlists to get known tracks (to exclude from recommendations)
+    // 2. Fetch audio features for user's top tracks from Spotify API
+    console.log('Fetching audio features for top tracks...');
+    const audioFeaturesResponse = await fetch(
+      `https://api.spotify.com/v1/audio-features?ids=${userTopTrackIds.join(',')}`,
+      { headers: { 'Authorization': `Bearer ${access_token}` } }
+    );
+
+    let userAudioFeatures: SpotifyAudioFeatures[] = [];
+    if (audioFeaturesResponse.ok) {
+      const audioFeaturesData = await audioFeaturesResponse.json();
+      userAudioFeatures = (audioFeaturesData.audio_features || []).filter((f: any) => f !== null);
+      console.log(`Got audio features for ${userAudioFeatures.length} tracks`);
+    } else {
+      console.log('Could not fetch audio features, will use dataset matching');
+    }
+
+    // 3. Fetch user's playlists to exclude known tracks
     const excludeTrackIds = new Set<string>(userTopTrackIds);
     
     try {
@@ -288,34 +273,54 @@ serve(async (req) => {
     
     console.log(`Excluding ${excludeTrackIds.size} known tracks`);
 
-    // 3. Load and parse the dataset from the provided URL
+    // 4. Load and parse the dataset
     console.log('Fetching dataset from:', dataset_url);
     
     const datasetResponse = await fetch(dataset_url);
     if (!datasetResponse.ok) {
       console.error('Failed to fetch dataset:', datasetResponse.status);
       return new Response(
-        JSON.stringify({ 
-          error: 'Failed to fetch dataset',
-          message: 'Could not load the track dataset for recommendations.'
-        }),
+        JSON.stringify({ error: 'Failed to fetch dataset' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     const csvText = await datasetResponse.text();
     const datasetTracks = parseCSV(csvText);
-
     console.log(`Loaded ${datasetTracks.length} tracks from dataset`);
 
-    // 4. Normalize features and get recommendations
-    const normalizedFeatures = normalizeFeatures(datasetTracks);
-    const recommendations = getRecommendations(
-      userTopTrackIds,
+    // 5. Calculate user's taste profile from audio features
+    const featureStats = getFeatureStats(datasetTracks);
+    
+    let userProfile: number[];
+    
+    if (userAudioFeatures.length > 0) {
+      // Average the user's audio features to create a taste profile
+      const avgFeatures = FEATURE_COLS.map(() => 0);
+      for (const features of userAudioFeatures) {
+        FEATURE_COLS.forEach((col, i) => {
+          avgFeatures[i] += (features as any)[col] || 0;
+        });
+      }
+      avgFeatures.forEach((_, i) => {
+        avgFeatures[i] /= userAudioFeatures.length;
+      });
+      
+      userProfile = normalizeVector(avgFeatures, featureStats.mins, featureStats.maxs);
+      console.log('Created user taste profile from Spotify audio features');
+    } else {
+      // Fallback: use a balanced profile
+      userProfile = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+      console.log('Using balanced fallback profile');
+    }
+
+    // 6. Get recommendations based on user's taste profile
+    const recommendations = getRecommendationsByFeatures(
+      userProfile,
       datasetTracks,
-      normalizedFeatures,
+      featureStats,
       excludeTrackIds,
-      10 // recommendations per top track
+      num_tracks * 2 // Get extra to filter
     );
 
     console.log(`Generated ${recommendations.length} recommendations`);
@@ -324,13 +329,13 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'Could not generate recommendations',
-          message: 'Your top tracks were not found in our dataset. Try listening to more varied music!'
+          message: 'Unable to find matching tracks. Please try again.'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 5. Create the playlist on Spotify
+    // 7. Create the playlist on Spotify
     const userResponse = await fetch('https://api.spotify.com/v1/me', {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
@@ -367,7 +372,7 @@ serve(async (req) => {
 
     console.log(`Created playlist: ${playlistId}`);
 
-    // 6. Add tracks to the playlist
+    // 8. Add tracks to the playlist
     const trackUris = recommendations
       .slice(0, num_tracks)
       .map(t => `spotify:track:${t.track_id}`);

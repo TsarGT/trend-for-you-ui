@@ -52,12 +52,15 @@ const Dashboard = () => {
       setIsCreatingPlaylist(true);
       toast.info('Creating your personalized playlist...');
 
+      // Use the deployed project URL for the dataset (accessible from edge function)
+      const deployedUrl = 'https://120fcb9f-fc72-47a4-8533-a7a3545ec8ce.lovableproject.com';
+      
       const { data, error } = await supabase.functions.invoke('create-playlist', {
         body: { 
           access_token: accessToken,
           playlist_name: `TrendTracks For You - ${new Date().toLocaleDateString()}`,
           num_tracks: 30,
-          dataset_url: `${window.location.origin}/data/dataset.csv`
+          dataset_url: `${deployedUrl}/data/dataset.csv`
         }
       });
 

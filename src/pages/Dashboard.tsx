@@ -27,20 +27,17 @@ import {
 import { useDataset } from "@/hooks/useDataset";
 import { useSpotify } from "@/hooks/useSpotify";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Music, Loader2, User, LogOut, RefreshCw } from "lucide-react";
+import { Music, Loader2, User, LogOut, RefreshCw, TrendingUp, Disc, Clock, Users, Zap, Activity, Heart } from "lucide-react";
 
 const genreColors = [
-  "hsl(141, 76%, 48%)", "hsl(200, 76%, 48%)", "hsl(340, 76%, 48%)",
-  "hsl(280, 76%, 48%)", "hsl(50, 76%, 48%)", "hsl(180, 76%, 48%)",
-  "hsl(20, 76%, 48%)", "hsl(100, 76%, 48%)", "hsl(260, 76%, 48%)",
-  "hsl(320, 76%, 48%)"
+  "#1DB954", "#1E90FF", "#FF6B9D", "#FFD700", "#FF8C00",
+  "#9B59B6", "#00CED1", "#FF6347", "#32CD32", "#FF69B4"
 ];
 
 const Dashboard = () => {
   const { loading: datasetLoading, error: datasetError, stats: datasetStats } = useDataset();
   const { isConnected, isLoading: spotifyLoading, spotifyData, connect, disconnect, fetchData } = useSpotify();
 
-  // Combine audio features from Spotify and dataset
   const getCombinedAudioFeatures = () => {
     if (!datasetStats) return [];
     
@@ -59,7 +56,6 @@ const Dashboard = () => {
     });
   };
 
-  // Combine genre data
   const getCombinedGenres = () => {
     if (!datasetStats) return [];
     
@@ -67,7 +63,6 @@ const Dashboard = () => {
       return datasetStats.genreDistribution;
     }
     
-    // Use Spotify genres with dataset colors
     return spotifyData.topGenres.slice(0, 10).map((genre, i) => ({
       name: genre.name,
       value: genre.count,
@@ -128,7 +123,6 @@ const Dashboard = () => {
             </p>
           </div>
           
-          {/* Spotify Connection */}
           <div className="flex items-center gap-3">
             {isConnected && spotifyData?.profile && (
               <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-lg">
@@ -168,34 +162,46 @@ const Dashboard = () => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="graphs">Analytics</TabsTrigger>
             <TabsTrigger value="personal" disabled={!isConnected}>Your Music</TabsTrigger>
-            <TabsTrigger value="compare">Compare</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
+            {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="bg-card border-border">
                 <CardHeader className="pb-2">
-                  <CardDescription>Dataset Tracks</CardDescription>
+                  <div className="flex items-center gap-2">
+                    <Disc className="w-4 h-4 text-muted-foreground" />
+                    <CardDescription>Total Tracks Analyzed</CardDescription>
+                  </div>
                   <CardTitle className="text-3xl text-primary">{datasetStats.totalTracks.toLocaleString()}</CardTitle>
                 </CardHeader>
               </Card>
               <Card className="bg-card border-border">
                 <CardHeader className="pb-2">
-                  <CardDescription>Genres in Dataset</CardDescription>
-                  <CardTitle className="text-3xl text-primary">{datasetStats.uniqueGenres}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-muted-foreground" />
+                    <CardDescription>Unique Genres</CardDescription>
+                  </div>
+                  <CardTitle className="text-3xl text-primary">{datasetStats.uniqueGenres.toLocaleString()}</CardTitle>
                 </CardHeader>
               </Card>
               {isConnected && spotifyData ? (
                 <>
                   <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
                     <CardHeader className="pb-2">
-                      <CardDescription className="text-[#1DB954]">Your Top Genres</CardDescription>
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-[#1DB954]" />
+                        <CardDescription className="text-[#1DB954]">Your Top Genres</CardDescription>
+                      </div>
                       <CardTitle className="text-3xl text-[#1DB954]">{spotifyData.topGenres.length}</CardTitle>
                     </CardHeader>
                   </Card>
                   <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
                     <CardHeader className="pb-2">
-                      <CardDescription className="text-[#1DB954]">Your Energy Score</CardDescription>
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-[#1DB954]" />
+                        <CardDescription className="text-[#1DB954]">Your Energy Score</CardDescription>
+                      </div>
                       <CardTitle className="text-3xl text-[#1DB954]">{(spotifyData.audioFeatures.energy * 100).toFixed(0)}%</CardTitle>
                     </CardHeader>
                   </Card>
@@ -204,13 +210,19 @@ const Dashboard = () => {
                 <>
                   <Card className="bg-card border-border">
                     <CardHeader className="pb-2">
-                      <CardDescription>Avg Popularity</CardDescription>
-                      <CardTitle className="text-3xl text-primary">{datasetStats.avgPopularity}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                        <CardDescription>Avg Popularity Score</CardDescription>
+                      </div>
+                      <CardTitle className="text-3xl text-primary">{datasetStats.avgPopularity}/100</CardTitle>
                     </CardHeader>
                   </Card>
                   <Card className="bg-card border-border">
                     <CardHeader className="pb-2">
-                      <CardDescription>Avg Duration</CardDescription>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <CardDescription>Avg Track Length</CardDescription>
+                      </div>
                       <CardTitle className="text-3xl text-primary">{datasetStats.avgDuration}</CardTitle>
                     </CardHeader>
                   </Card>
@@ -218,12 +230,17 @@ const Dashboard = () => {
               )}
             </div>
 
-            {/* Quick Stats Grid */}
+            {/* Charts Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle>Genre Distribution</CardTitle>
-                  <CardDescription>{isConnected ? 'Your top genres' : 'Top genres in dataset'}</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Genre Distribution
+                  </CardTitle>
+                  <CardDescription>
+                    {isConnected ? 'Your most listened genres based on top artists' : 'Most common genres across 114k tracks'}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -257,8 +274,13 @@ const Dashboard = () => {
 
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle>Audio Features</CardTitle>
-                  <CardDescription>{isConnected ? 'Your profile vs dataset average' : 'Dataset average characteristics'}</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-primary" />
+                    Audio Features Profile
+                  </CardTitle>
+                  <CardDescription>
+                    {isConnected ? 'Your listening profile vs dataset average' : 'Average audio characteristics across all tracks'}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -269,8 +291,8 @@ const Dashboard = () => {
                       <Radar
                         name="Dataset Avg"
                         dataKey="dataset"
-                        stroke="hsl(200 76% 48%)"
-                        fill="hsl(200 76% 48%)"
+                        stroke="#1E90FF"
+                        fill="#1E90FF"
                         fillOpacity={0.3}
                       />
                       {isConnected && spotifyData && (
@@ -294,8 +316,11 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle>Popularity Distribution</CardTitle>
-                  <CardDescription>Track count by popularity range</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    Popularity Distribution
+                  </CardTitle>
+                  <CardDescription>How tracks are distributed across popularity scores (0-100)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -310,8 +335,9 @@ const Dashboard = () => {
                           borderRadius: '8px',
                           color: 'hsl(0 0% 95%)'
                         }} 
+                        formatter={(value: number) => [value.toLocaleString() + ' tracks', 'Count']}
                       />
-                      <Bar dataKey="count" fill="hsl(141 76% 48%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="count" fill="#1DB954" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -319,8 +345,11 @@ const Dashboard = () => {
 
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle>Tempo Distribution</CardTitle>
-                  <CardDescription>BPM ranges across tracks</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Tempo Distribution
+                  </CardTitle>
+                  <CardDescription>Track count by BPM range (beats per minute)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -334,9 +363,10 @@ const Dashboard = () => {
                           border: '1px solid hsl(0 0% 20%)',
                           borderRadius: '8px',
                           color: 'hsl(0 0% 95%)'
-                        }} 
+                        }}
+                        formatter={(value: number) => [value.toLocaleString() + ' tracks', 'Count']}
                       />
-                      <Area type="monotone" dataKey="count" stroke="hsl(200 76% 48%)" fill="hsl(200 76% 48%)" fillOpacity={0.3} />
+                      <Area type="monotone" dataKey="count" stroke="#1E90FF" fill="#1E90FF" fillOpacity={0.3} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -344,15 +374,18 @@ const Dashboard = () => {
 
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle>Energy vs Danceability</CardTitle>
-                  <CardDescription>Average by genre</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-primary" />
+                    Energy vs Danceability
+                  </CardTitle>
+                  <CardDescription>Correlation between high-energy and danceable tracks by genre</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <ScatterChart>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 20%)" />
-                      <XAxis type="number" dataKey="energy" name="Energy" tick={{ fill: 'hsl(0 0% 65%)' }} domain={[0, 1]} />
-                      <YAxis type="number" dataKey="danceability" name="Danceability" tick={{ fill: 'hsl(0 0% 65%)' }} domain={[0, 1]} />
+                      <XAxis type="number" dataKey="energy" name="Energy" tick={{ fill: 'hsl(0 0% 65%)' }} domain={[0, 1]} label={{ value: 'Energy', position: 'bottom', fill: 'hsl(0 0% 65%)' }} />
+                      <YAxis type="number" dataKey="danceability" name="Danceability" tick={{ fill: 'hsl(0 0% 65%)' }} domain={[0, 1]} label={{ value: 'Danceability', angle: -90, position: 'insideLeft', fill: 'hsl(0 0% 65%)' }} />
                       <Tooltip 
                         cursor={{ strokeDasharray: '3 3' }}
                         contentStyle={{ 
@@ -361,13 +394,14 @@ const Dashboard = () => {
                           borderRadius: '8px',
                           color: 'hsl(0 0% 95%)'
                         }}
+                        formatter={(value: number) => value.toFixed(2)}
                       />
-                      <Scatter name="Dataset Genres" data={datasetStats.energyVsDanceability} fill="hsl(141 76% 48%)" />
+                      <Scatter name="Dataset Genres" data={datasetStats.energyVsDanceability} fill="#1DB954" />
                       {isConnected && spotifyData && (
                         <Scatter 
                           name="Your Profile" 
                           data={[{ energy: spotifyData.audioFeatures.energy, danceability: spotifyData.audioFeatures.danceability }]} 
-                          fill="#1DB954"
+                          fill="#FF6B9D"
                           shape="star"
                         />
                       )}
@@ -379,8 +413,11 @@ const Dashboard = () => {
 
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle>Top Genres by Track Count</CardTitle>
-                  <CardDescription>Most represented in dataset</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary" />
+                    Top Genres by Track Count
+                  </CardTitle>
+                  <CardDescription>Most represented genres in the 114k track dataset</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -394,9 +431,10 @@ const Dashboard = () => {
                           border: '1px solid hsl(0 0% 20%)',
                           borderRadius: '8px',
                           color: 'hsl(0 0% 95%)'
-                        }} 
+                        }}
+                        formatter={(value: number) => [value.toLocaleString() + ' tracks', 'Count']}
                       />
-                      <Bar dataKey="value" fill="hsl(280 76% 48%)" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="value" fill="#9B59B6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -421,90 +459,122 @@ const Dashboard = () => {
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : spotifyData && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Top Artists */}
-                <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/30">
-                  <CardHeader>
-                    <CardDescription className="text-purple-400">Your Top Artists</CardDescription>
-                    <CardTitle>Most Played Artists</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {spotifyData.topArtists.medium.slice(0, 5).map((artist, i) => (
-                        <div key={artist.id} className="flex items-center gap-3">
-                          <span className="text-xl font-bold text-purple-400 w-6">{i + 1}</span>
-                          {artist.images[0] ? (
-                            <img src={artist.images[0].url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-10 h-10 bg-purple-500/20 rounded-full" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-foreground truncate">{artist.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{artist.genres.slice(0, 2).join(', ')}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="space-y-6">
+                {/* Top Stats Row */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
+                    <CardHeader className="pb-2">
+                      <CardDescription className="text-[#1DB954]">Total Top Artists</CardDescription>
+                      <CardTitle className="text-2xl text-[#1DB954]">{spotifyData.topArtists.medium.length}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/30">
+                    <CardHeader className="pb-2">
+                      <CardDescription className="text-purple-400">Unique Genres</CardDescription>
+                      <CardTitle className="text-2xl text-purple-400">{spotifyData.topGenres.length}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border-orange-500/30">
+                    <CardHeader className="pb-2">
+                      <CardDescription className="text-orange-400">Avg Energy</CardDescription>
+                      <CardTitle className="text-2xl text-orange-400">{(spotifyData.audioFeatures.energy * 100).toFixed(0)}%</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="bg-gradient-to-br from-pink-500/20 to-pink-500/5 border-pink-500/30">
+                    <CardHeader className="pb-2">
+                      <CardDescription className="text-pink-400">Mood Score</CardDescription>
+                      <CardTitle className="text-2xl text-pink-400">{(spotifyData.audioFeatures.valence * 100).toFixed(0)}%</CardTitle>
+                    </CardHeader>
+                  </Card>
+                </div>
 
-                {/* Top Tracks */}
-                <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
-                  <CardHeader>
-                    <CardDescription className="text-[#1DB954]">Your Top Tracks</CardDescription>
-                    <CardTitle>Most Played Songs</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {spotifyData.topTracks.medium.slice(0, 5).map((track, i) => (
-                        <div key={track.id} className="flex items-center gap-3">
-                          <span className="text-xl font-bold text-[#1DB954] w-6">{i + 1}</span>
-                          {track.album.images[0] ? (
-                            <img src={track.album.images[0].url} alt="" className="w-10 h-10 rounded object-cover" />
-                          ) : (
-                            <div className="w-10 h-10 bg-[#1DB954]/20 rounded" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-foreground truncate">{track.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{track.artists.map(a => a.name).join(', ')}</p>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Top Artists */}
+                  <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/30">
+                    <CardHeader>
+                      <CardDescription className="text-purple-400">Your Top Artists</CardDescription>
+                      <CardTitle>Most Played Artists</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {spotifyData.topArtists.medium.slice(0, 5).map((artist, i) => (
+                          <div key={artist.id} className="flex items-center gap-3">
+                            <span className="text-xl font-bold text-purple-400 w-6">{i + 1}</span>
+                            {artist.images[0] ? (
+                              <img src={artist.images[0].url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 bg-purple-500/20 rounded-full" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-foreground truncate">{artist.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{artist.genres.slice(0, 2).join(', ')}</p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                {/* Top Genres */}
-                <Card className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border-orange-500/30">
-                  <CardHeader>
-                    <CardDescription className="text-orange-400">Your Top Genres</CardDescription>
-                    <CardTitle>Genre Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {spotifyData.topGenres.slice(0, 8).map((genre, i) => (
-                        <div key={genre.name} className="flex items-center gap-2">
-                          <div 
-                            className="h-2 rounded-full" 
-                            style={{ 
-                              width: `${(genre.count / spotifyData.topGenres[0].count) * 100}%`,
-                              backgroundColor: genreColors[i % genreColors.length],
-                              minWidth: '20px'
-                            }}
-                          />
-                          <span className="text-sm text-foreground truncate flex-1">{genre.name}</span>
-                          <span className="text-xs text-muted-foreground">{genre.count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                  {/* Top Tracks */}
+                  <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
+                    <CardHeader>
+                      <CardDescription className="text-[#1DB954]">Your Top Tracks</CardDescription>
+                      <CardTitle>Most Played Songs</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {spotifyData.topTracks.medium.slice(0, 5).map((track, i) => (
+                          <div key={track.id} className="flex items-center gap-3">
+                            <span className="text-xl font-bold text-[#1DB954] w-6">{i + 1}</span>
+                            {track.album.images[0] ? (
+                              <img src={track.album.images[0].url} alt="" className="w-10 h-10 rounded object-cover" />
+                            ) : (
+                              <div className="w-10 h-10 bg-[#1DB954]/20 rounded" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-foreground truncate">{track.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{track.artists.map(a => a.name).join(', ')}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Genres - Horizontal Bar Style like reference image */}
+                  <Card className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border-orange-500/30">
+                    <CardHeader>
+                      <CardDescription className="text-orange-400">Your Top Genres</CardDescription>
+                      <CardTitle>Genre Breakdown</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {spotifyData.topGenres.slice(0, 8).map((genre, i) => (
+                          <div key={genre.name} className="flex items-center gap-2">
+                            <div 
+                              className="h-3 rounded-sm transition-all" 
+                              style={{ 
+                                width: `${Math.max((genre.count / spotifyData.topGenres[0].count) * 100, 10)}%`,
+                                backgroundColor: genreColors[i % genreColors.length],
+                              }}
+                            />
+                            <span className="text-sm text-foreground truncate flex-1 min-w-0">{genre.name}</span>
+                            <span className="text-sm font-medium text-muted-foreground">{genre.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
 
                 {/* Recently Played */}
-                <Card className="lg:col-span-3 bg-card border-border">
+                <Card className="bg-card border-border">
                   <CardHeader>
-                    <CardTitle>Recently Played</CardTitle>
-                    <CardDescription>Your latest listens</CardDescription>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-primary" />
+                      Recently Played
+                    </CardTitle>
+                    <CardDescription>Your latest listening activity</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -528,116 +598,6 @@ const Dashboard = () => {
                 </Card>
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="compare" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Audio Features Comparison */}
-              <Card className="lg:col-span-2 bg-card border-border">
-                <CardHeader>
-                  <CardTitle>Audio Profile Comparison</CardTitle>
-                  <CardDescription>
-                    {isConnected 
-                      ? 'How your music taste compares to the dataset average' 
-                      : 'Connect Spotify to compare your taste'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={getCombinedAudioFeatures()} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 20%)" />
-                      <XAxis type="number" domain={[0, 1]} tick={{ fill: 'hsl(0 0% 65%)' }} />
-                      <YAxis dataKey="feature" type="category" tick={{ fill: 'hsl(0 0% 65%)' }} width={100} />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(0 0% 11%)', 
-                          border: '1px solid hsl(0 0% 20%)',
-                          borderRadius: '8px',
-                          color: 'hsl(0 0% 95%)'
-                        }}
-                        formatter={(value: number) => value.toFixed(3)}
-                      />
-                      <Bar dataKey="dataset" fill="hsl(200 76% 48%)" name="Dataset Average" radius={[0, 4, 4, 0]} />
-                      {isConnected && spotifyData && (
-                        <Bar dataKey="personal" fill="#1DB954" name="Your Profile" radius={[0, 4, 4, 0]} />
-                      )}
-                      <Legend />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Stats Cards */}
-              <Card className="bg-card border-border">
-                <CardHeader>
-                  <CardTitle>Dataset Statistics</CardTitle>
-                  <CardDescription>114k track Spotify dataset</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total Tracks</span>
-                    <span className="font-semibold">{datasetStats.totalTracks.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Unique Genres</span>
-                    <span className="font-semibold">{datasetStats.uniqueGenres}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Avg Popularity</span>
-                    <span className="font-semibold">{datasetStats.avgPopularity}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Avg Duration</span>
-                    <span className="font-semibold">{datasetStats.avgDuration}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Top Genre</span>
-                    <span className="font-semibold capitalize">{datasetStats.topGenre}</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {isConnected && spotifyData ? (
-                <Card className="bg-gradient-to-br from-[#1DB954]/10 to-transparent border-[#1DB954]/30">
-                  <CardHeader>
-                    <CardTitle className="text-[#1DB954]">Your Statistics</CardTitle>
-                    <CardDescription>Based on your listening history</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Top Artists</span>
-                      <span className="font-semibold">{spotifyData.topArtists.medium.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Top Genres</span>
-                      <span className="font-semibold">{spotifyData.topGenres.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg Energy</span>
-                      <span className="font-semibold">{(spotifyData.audioFeatures.energy * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg Danceability</span>
-                      <span className="font-semibold">{(spotifyData.audioFeatures.danceability * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Avg Valence (Mood)</span>
-                      <span className="font-semibold">{(spotifyData.audioFeatures.valence * 100).toFixed(0)}%</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="bg-card border-border flex items-center justify-center">
-                  <CardContent className="text-center py-8">
-                    <Music className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground mb-3">Connect Spotify to see your stats</p>
-                    <Button onClick={connect} size="sm" className="bg-[#1DB954] hover:bg-[#1ed760]">
-                      Connect
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
           </TabsContent>
         </Tabs>
       </main>

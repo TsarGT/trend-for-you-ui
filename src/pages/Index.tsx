@@ -14,6 +14,7 @@ import { Globe, Loader2, Music } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useSpotify } from "@/hooks/useSpotify";
+import { useUserPlaylists } from "@/hooks/useUserPlaylists";
 
 interface Top50Track {
   rank: number;
@@ -36,6 +37,7 @@ const Index = () => {
   const [isGenreLoading, setIsGenreLoading] = useState(true);
   const [dataSource, setDataSource] = useState<string>("");
   const { isConnected, connect, isLoading: spotifyLoading, accessToken } = useSpotify();
+  const { playlists: userPlaylists } = useUserPlaylists();
 
   useEffect(() => {
     const fetchTop50 = async () => {
@@ -260,19 +262,33 @@ const Index = () => {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Pre-made Playlists */}
+            {/* Your Playlists / Pre-made Playlists */}
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-3">Pre-made Playlists</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-3">
+                {userPlaylists.length > 0 ? 'Your Playlists' : 'Pre-made Playlists'}
+              </h3>
               <div className="grid gap-2">
-                {premadePlaylists.map((playlist, index) => (
-                  <TrackCard
-                    key={index}
-                    title={playlist.title}
-                    artist={playlist.artist}
-                    type={playlist.type}
-                    spotifyUrl={playlist.spotifyUrl}
-                  />
-                ))}
+                {userPlaylists.length > 0 ? (
+                  userPlaylists.slice(0, 3).map((playlist) => (
+                    <TrackCard
+                      key={playlist.id}
+                      title={playlist.name}
+                      artist={`${playlist.tracksCount} tracks`}
+                      type="Playlist"
+                      spotifyUrl={playlist.url}
+                    />
+                  ))
+                ) : (
+                  premadePlaylists.map((playlist, index) => (
+                    <TrackCard
+                      key={index}
+                      title={playlist.title}
+                      artist={playlist.artist}
+                      type={playlist.type}
+                      spotifyUrl={playlist.spotifyUrl}
+                    />
+                  ))
+                )}
               </div>
             </div>
 

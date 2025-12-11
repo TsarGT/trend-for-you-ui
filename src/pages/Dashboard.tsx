@@ -27,6 +27,7 @@ import {
 } from "recharts";
 import { useDataset } from "@/hooks/useDataset";
 import { useSpotify } from "@/hooks/useSpotify";
+import { useUserPlaylists } from "@/hooks/useUserPlaylists";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Music, Loader2, User, LogOut, RefreshCw, TrendingUp, Disc, Clock, Users, Zap, Activity, Heart, ListMusic, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,7 @@ const genreColors = [
 const Dashboard = () => {
   const { loading: datasetLoading, error: datasetError, stats: datasetStats, tracks } = useDataset();
   const { isConnected, isLoading: spotifyLoading, spotifyData, accessToken, connect, disconnect, fetchData } = useSpotify();
+  const { addPlaylist } = useUserPlaylists();
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
   const createRecommendedPlaylist = async () => {
@@ -80,6 +82,16 @@ const Dashboard = () => {
       if (error) throw error;
 
       if (data.success) {
+        // Save playlist to user's collection
+        const playlistName = `TrendTracks For You - ${new Date().toLocaleDateString()}`;
+        addPlaylist({
+          id: data.playlist_id,
+          name: playlistName,
+          url: data.playlist_url,
+          tracksCount: data.tracks_added,
+          createdAt: new Date().toISOString()
+        });
+
         toast.success(`Playlist created with ${data.tracks_added} tracks!`, {
           action: data.playlist_url ? {
             label: 'Open in Spotify',

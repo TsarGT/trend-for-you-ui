@@ -153,11 +153,20 @@ class KMeans {
   }
 }
 
+/** Full track recommendation with audio features */
+export interface RecommendedTrack extends Track {
+  track_id: string;
+  track_name: string;
+  artists: string;
+  track_genre: string;
+  popularity: number;
+}
+
 // Generate recommendations based on seed tracks
 export function generateRecommendations(
   allTracks: Track[],
   numRecommendations: number = 30
-): { track_id: string; track_name: string; artists: string; track_genre: string; popularity: number }[] {
+): RecommendedTrack[] {
   console.log(`Generating recommendations from ${allTracks.length} tracks`);
 
   // Filter and normalize data
@@ -177,14 +186,7 @@ export function generateRecommendations(
     return data
       .filter(t => seedGenres.has(t.track_genre))
       .sort((a, b) => b.popularity - a.popularity)
-      .slice(0, numRecommendations)
-      .map(t => ({
-        track_id: t.track_id,
-        track_name: t.track_name,
-        artists: t.artists,
-        track_genre: t.track_genre,
-        popularity: t.popularity
-      }));
+      .slice(0, numRecommendations) as RecommendedTrack[];
   }
 
   // Get genres from matched seeds
@@ -245,15 +247,8 @@ export function generateRecommendations(
     }
   }
 
-  // Sort by popularity and return
+  // Sort by popularity and return full track data
   return unique
     .sort((a, b) => b.popularity - a.popularity)
-    .slice(0, numRecommendations)
-    .map(t => ({
-      track_id: t.track_id,
-      track_name: t.track_name,
-      artists: t.artists,
-      track_genre: t.track_genre,
-      popularity: t.popularity
-    }));
+    .slice(0, numRecommendations) as RecommendedTrack[];
 }

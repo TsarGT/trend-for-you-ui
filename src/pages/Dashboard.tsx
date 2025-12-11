@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Music, Loader2, User, LogOut, RefreshCw, TrendingUp, Disc, Clock, Users, Zap, Activity, Heart, ListMusic, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { generateRecommendations } from "@/lib/recommendations";
 
 const genreColors = [
   "#1DB954", "#1E90FF", "#FF6B9D", "#FFD700", "#FF8C00",
@@ -38,7 +39,7 @@ const genreColors = [
 ];
 
 const Dashboard = () => {
-  const { loading: datasetLoading, error: datasetError, stats: datasetStats } = useDataset();
+  const { loading: datasetLoading, error: datasetError, stats: datasetStats, tracks } = useDataset();
   const { isConnected, isLoading: spotifyLoading, spotifyData, accessToken, connect, disconnect, fetchData } = useSpotify();
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
@@ -48,15 +49,31 @@ const Dashboard = () => {
       return;
     }
 
+    if (tracks.length === 0) {
+      toast.error('Dataset not loaded yet');
+      return;
+    }
+
     try {
       setIsCreatingPlaylist(true);
-      toast.info('Creating your personalized playlist...');
+      toast.info('Generating recommendations...');
 
+      // Generate recommendations client-side
+      const recommendations = generateRecommendations(tracks, 30);
+      console.log('Generated recommendations:', recommendations.length);
+
+      if (recommendations.length === 0) {
+        throw new Error('Could not generate recommendations');
+      }
+
+      toast.info('Creating playlist on Spotify...');
+
+      // Send track IDs to edge function to create playlist
       const { data, error } = await supabase.functions.invoke('create-playlist', {
         body: { 
           access_token: accessToken,
           playlist_name: `TrendTracks For You - ${new Date().toLocaleDateString()}`,
-          num_tracks: 30
+          track_ids: recommendations.map(r => r.track_id)
         }
       });
 

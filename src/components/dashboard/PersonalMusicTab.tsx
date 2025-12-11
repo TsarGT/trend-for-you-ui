@@ -1,12 +1,13 @@
 /**
  * @fileoverview Personal music tab component
- * Displays user's Spotify data including top artists, tracks, genres, and recently played
+ * Displays generated playlist data or prompts to create a playlist
  */
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Music, Loader2, ListMusic, Clock, Sparkles } from "lucide-react";
+import { Music, Loader2, ListMusic, Sparkles } from "lucide-react";
 import { SpotifyData, GENRE_COLORS } from "./types";
+import { RecommendedTrack } from "@/lib/recommendations";
 
 interface PersonalMusicTabProps {
   /** Whether user is connected to Spotify */
@@ -17,6 +18,8 @@ interface PersonalMusicTabProps {
   spotifyData?: SpotifyData | null;
   /** Whether playlist is being created */
   isCreatingPlaylist: boolean;
+  /** Generated playlist tracks */
+  generatedPlaylist: RecommendedTrack[];
   /** Callback to connect to Spotify */
   onConnect: () => void;
   /** Callback to create a recommended playlist */
@@ -24,13 +27,14 @@ interface PersonalMusicTabProps {
 }
 
 /**
- * Personal music tab showing Spotify listening data
+ * Personal music tab showing generated playlist data
  */
 export function PersonalMusicTab({
   isConnected,
   spotifyLoading,
   spotifyData,
   isCreatingPlaylist,
+  generatedPlaylist,
   onConnect,
   onCreatePlaylist,
 }: PersonalMusicTabProps) {
@@ -59,20 +63,59 @@ export function PersonalMusicTab({
     );
   }
 
-  // No data state
-  if (!spotifyData) {
+  // No playlist generated yet
+  if (generatedPlaylist.length === 0) {
     return (
-      <Card className="bg-card border-border">
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">No Spotify data available</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        {/* Create Playlist CTA */}
+        <Card className="bg-gradient-to-r from-[#1DB954]/30 via-purple-500/20 to-pink-500/20 border-[#1DB954]/40">
+          <CardContent className="flex flex-col items-center justify-center gap-4 py-12">
+            <div className="p-4 rounded-full bg-[#1DB954]/20">
+              <Sparkles className="w-12 h-12 text-[#1DB954]" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-semibold text-foreground mb-2">Create Your Personalized Playlist</h3>
+              <p className="text-muted-foreground max-w-md">
+                Click the button below to generate a custom playlist based on curated recommendations
+              </p>
+            </div>
+            <Button
+              onClick={onCreatePlaylist}
+              disabled={isCreatingPlaylist}
+              size="lg"
+              className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-semibold mt-4"
+            >
+              {isCreatingPlaylist ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <ListMusic className="w-4 h-4 mr-2" />
+              )}
+              {isCreatingPlaylist ? "Creating..." : "Create Playlist"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
+  // Calculate stats from generated playlist
+  const uniqueGenres = [...new Set(generatedPlaylist.map(t => t.track_genre))];
+  const uniqueArtists = [...new Set(generatedPlaylist.map(t => t.artists))];
+  const avgEnergy = generatedPlaylist.reduce((sum, t) => sum + t.energy, 0) / generatedPlaylist.length;
+  const avgValence = generatedPlaylist.reduce((sum, t) => sum + t.valence, 0) / generatedPlaylist.length;
+
+  // Get genre counts
+  const genreCounts = new Map<string, number>();
+  generatedPlaylist.forEach(track => {
+    genreCounts.set(track.track_genre, (genreCounts.get(track.track_genre) || 0) + 1);
+  });
+  const topGenres = Array.from(genreCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+
   return (
     <div className="space-y-6">
-      {/* Create Playlist CTA */}
+      {/* Create Another Playlist CTA */}
       <Card className="bg-gradient-to-r from-[#1DB954]/30 via-purple-500/20 to-pink-500/20 border-[#1DB954]/40">
         <CardContent className="flex flex-col md:flex-row items-center justify-between gap-4 py-6">
           <div className="flex items-center gap-4">
@@ -80,8 +123,8 @@ export function PersonalMusicTab({
               <Sparkles className="w-8 h-8 text-[#1DB954]" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-foreground">Get Personalized Recommendations</h3>
-              <p className="text-sm text-muted-foreground">Create a playlist based on your listening habits</p>
+              <h3 className="text-lg font-semibold text-foreground">Your Generated Playlist</h3>
+              <p className="text-sm text-muted-foreground">{generatedPlaylist.length} tracks curated for you</p>
             </div>
           </div>
           <Button
@@ -94,7 +137,7 @@ export function PersonalMusicTab({
             ) : (
               <ListMusic className="w-4 h-4 mr-2" />
             )}
-            {isCreatingPlaylist ? "Creating..." : "Create Playlist"}
+            {isCreatingPlaylist ? "Creating..." : "Create New Playlist"}
           </Button>
         </CardContent>
       </Card>
@@ -103,21 +146,21 @@ export function PersonalMusicTab({
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[#1DB954]">Total Top Artists</CardDescription>
-            <CardTitle className="text-2xl text-[#1DB954]">{spotifyData.topArtists.medium.length}</CardTitle>
+            <CardDescription className="text-[#1DB954]">Total Tracks</CardDescription>
+            <CardTitle className="text-2xl text-[#1DB954]">{generatedPlaylist.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/30">
           <CardHeader className="pb-2">
             <CardDescription className="text-purple-400">Unique Genres</CardDescription>
-            <CardTitle className="text-2xl text-purple-400">{spotifyData.topGenres.length}</CardTitle>
+            <CardTitle className="text-2xl text-purple-400">{uniqueGenres.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border-orange-500/30">
           <CardHeader className="pb-2">
             <CardDescription className="text-orange-400">Avg Energy</CardDescription>
             <CardTitle className="text-2xl text-orange-400">
-              {(spotifyData.audioFeatures.energy * 100).toFixed(0)}%
+              {(avgEnergy * 100).toFixed(0)}%
             </CardTitle>
           </CardHeader>
         </Card>
@@ -125,7 +168,7 @@ export function PersonalMusicTab({
           <CardHeader className="pb-2">
             <CardDescription className="text-pink-400">Mood Score</CardDescription>
             <CardTitle className="text-2xl text-pink-400">
-              {(spotifyData.audioFeatures.valence * 100).toFixed(0)}%
+              {(avgValence * 100).toFixed(0)}%
             </CardTitle>
           </CardHeader>
         </Card>
@@ -133,27 +176,22 @@ export function PersonalMusicTab({
 
       {/* Three Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Top Artists */}
+        {/* Playlist Artists */}
         <Card className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/30">
           <CardHeader>
-            <CardDescription className="text-purple-400">Your Top Artists</CardDescription>
-            <CardTitle>Most Played Artists</CardTitle>
+            <CardDescription className="text-purple-400">Featured Artists</CardDescription>
+            <CardTitle>Artists in Playlist</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {spotifyData.topArtists.medium.slice(0, 5).map((artist, i) => (
-                <div key={artist.id} className="flex items-center gap-3">
+              {uniqueArtists.slice(0, 5).map((artist, i) => (
+                <div key={artist} className="flex items-center gap-3">
                   <span className="text-xl font-bold text-purple-400 w-6">{i + 1}</span>
-                  {artist.images[0] ? (
-                    <img src={artist.images[0].url} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 bg-purple-500/20 rounded-full" />
-                  )}
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
+                    <Music className="w-5 h-5 text-purple-400" />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground truncate">{artist.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {artist.genres.slice(0, 2).join(", ")}
-                    </p>
+                    <p className="font-semibold text-foreground truncate">{artist}</p>
                   </div>
                 </div>
               ))}
@@ -161,27 +199,23 @@ export function PersonalMusicTab({
           </CardContent>
         </Card>
 
-        {/* Top Tracks */}
+        {/* Playlist Tracks */}
         <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
           <CardHeader>
-            <CardDescription className="text-[#1DB954]">Your Top Tracks</CardDescription>
-            <CardTitle>Most Played Songs</CardTitle>
+            <CardDescription className="text-[#1DB954]">Playlist Tracks</CardDescription>
+            <CardTitle>Top Songs</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {spotifyData.topTracks.medium.slice(0, 5).map((track, i) => (
-                <div key={track.id} className="flex items-center gap-3">
+              {generatedPlaylist.slice(0, 5).map((track, i) => (
+                <div key={track.track_id} className="flex items-center gap-3">
                   <span className="text-xl font-bold text-[#1DB954] w-6">{i + 1}</span>
-                  {track.album.images[0] ? (
-                    <img src={track.album.images[0].url} alt="" className="w-10 h-10 rounded object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 bg-[#1DB954]/20 rounded" />
-                  )}
+                  <div className="w-10 h-10 bg-[#1DB954]/20 rounded flex items-center justify-center">
+                    <Music className="w-5 h-5 text-[#1DB954]" />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground truncate">{track.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {track.artists.map((a) => a.name).join(", ")}
-                    </p>
+                    <p className="font-semibold text-foreground truncate">{track.track_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{track.artists}</p>
                   </div>
                 </div>
               ))}
@@ -189,25 +223,25 @@ export function PersonalMusicTab({
           </CardContent>
         </Card>
 
-        {/* Top Genres */}
+        {/* Genre Distribution */}
         <Card className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border-orange-500/30">
           <CardHeader>
-            <CardDescription className="text-orange-400">Your Top Genre</CardDescription>
+            <CardDescription className="text-orange-400">Playlist Genres</CardDescription>
             <CardTitle>Genre Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {spotifyData.topGenres.slice(0, 8).map((genre, i) => (
-                <div key={genre.name} className="flex items-center gap-2">
+              {topGenres.map(([genre, count], i) => (
+                <div key={genre} className="flex items-center gap-2">
                   <div
                     className="h-3 rounded-sm transition-all"
                     style={{
-                      width: `${Math.max((genre.count / spotifyData.topGenres[0].count) * 100, 10)}%`,
+                      width: `${Math.max((count / topGenres[0][1]) * 100, 10)}%`,
                       backgroundColor: GENRE_COLORS[i % GENRE_COLORS.length],
                     }}
                   />
-                  <span className="text-sm text-foreground truncate flex-1 min-w-0">{genre.name}</span>
-                  <span className="text-sm font-medium text-muted-foreground">{genre.count}</span>
+                  <span className="text-sm text-foreground truncate flex-1 min-w-0">{genre}</span>
+                  <span className="text-sm font-medium text-muted-foreground">{count}</span>
                 </div>
               ))}
             </div>
@@ -215,32 +249,25 @@ export function PersonalMusicTab({
         </Card>
       </div>
 
-      {/* Recently Played */}
+      {/* Full Playlist */}
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
-            Recently Played
+            <ListMusic className="w-5 h-5 text-primary" />
+            Full Playlist
           </CardTitle>
-          <CardDescription>Your latest listening activity</CardDescription>
+          <CardDescription>All {generatedPlaylist.length} tracks in your generated playlist</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {spotifyData.recentlyPlayed.slice(0, 10).map((item, i) => (
-              <div key={`${item.track.id}-${i}`} className="group">
-                {item.track.album.images[0] ? (
-                  <img
-                    src={item.track.album.images[0].url}
-                    alt=""
-                    className="w-full aspect-square rounded-lg object-cover mb-2 group-hover:opacity-80 transition-opacity"
-                  />
-                ) : (
-                  <div className="w-full aspect-square bg-muted rounded-lg mb-2" />
-                )}
-                <p className="font-medium text-sm text-foreground truncate">{item.track.name}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {item.track.artists.map((a) => a.name).join(", ")}
-                </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {generatedPlaylist.map((track, i) => (
+              <div key={`${track.track_id}-${i}`} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                <span className="text-sm font-medium text-muted-foreground w-6">{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-foreground truncate">{track.track_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{track.artists}</p>
+                </div>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{track.track_genre}</span>
               </div>
             ))}
           </div>

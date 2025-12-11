@@ -170,7 +170,7 @@ const Index = () => {
         <section>
           <div className="mb-4 flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-1">Global Top 50</h2>
+              <h2 className="text-2xl font-bold text-foreground mb-1">Top Tracks Right Now</h2>
               <p className="text-sm text-muted-foreground">Top Trending Tracks Worldwide</p>
             </div>
             <div className="flex items-center gap-2">

@@ -5,691 +5,240 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Dataset URL - hardcoded for edge function context
 const DATASET_URL = 'https://120fcb9f-fc72-47a4-8533-a7a3545ec8ce.lovableproject.com/data/dataset.csv';
 
-// Pre-defined seed tracks that are confirmed to be in the dataset (FOR TESTING ONLY)
+// HARDCODED SEED TRACKS FROM playlist_juan.csv (45 tracks)
 const SEED_TRACKS = [
-  { track_id: "6dGnYIeXmHdcikdzNNDMm2", track_name: "Here Comes The Sun - Remastered 2009", artists: "The Beatles", track_genre: "psych-rock" },
-  { track_id: "6GG73Jik4jUlQCkKg9JuGO", track_name: "The Middle", artists: "Jimmy Eat World", track_genre: "punk-rock" },
-  { track_id: "7B3z0ySL9Rr0XvZEAjWZzM", track_name: "Sofia", artists: "Clairo", track_genre: "indie-pop" },
-  { track_id: "4EchqUKQ3qAQuRNKmeIpnf", track_name: "The Kids Aren't Alright", artists: "The Offspring", track_genre: "punk-rock" },
-  { track_id: "2IVsRhKrx8hlQBOWy4qebo", track_name: "Mr Loverman", artists: "Ricky Montgomery", track_genre: "indie-pop" },
-  { track_id: "4qbEaaJ29p32GI8EWQmm6R", track_name: "dumb dumb", artists: "mazie", track_genre: "indie-pop" },
-  { track_id: "7DcJ6fEBb7BaKuYKTwiDxK", track_name: "Homage", artists: "Mild High Club", track_genre: "psych-rock" },
-  { track_id: "1i6N76fftMZhijOzFQ5ZtL", track_name: "Psycho Killer - 2005 Remaster", artists: "Talking Heads", track_genre: "punk-rock" },
-  { track_id: "5ln5yQdUywVbf8HhFsOcd6", track_name: "Walls Could Talk", artists: "Halsey", track_genre: "indie-pop" },
-  { track_id: "6mFkJmJqdDVQ1REhVfGgd1", track_name: "Wish You Were Here", artists: "Pink Floyd", track_genre: "psych-rock" },
-  { track_id: "1fJFuvU2ldmeAm5nFIHcPP", track_name: "First Date", artists: "blink-182", track_genre: "punk-rock" },
-  { track_id: "3BQHpFgAp4l80e1XslIjNI", track_name: "Yesterday - Remastered 2009", artists: "The Beatles", track_genre: "psych-rock" },
-  { track_id: "6UFivO2zqqPFPoQYsEMuCc", track_name: "Bags", artists: "Clairo", track_genre: "indie-pop" },
-  { track_id: "3Pzh926pXggbMe2ZpXyMV7", track_name: "Ain't No Rest for the Wicked", artists: "Cage The Elephant", track_genre: "punk-rock" },
-  { track_id: "5jgFfDIR6FR0gvlA56Nakr", track_name: "Blackbird - Remastered 2009", artists: "The Beatles", track_genre: "psych-rock" },
-  { track_id: "2i0AUcEnsDm3dsqLrFWUCq", track_name: "Tonight Tonight", artists: "Hot Chelle Rae", track_genre: "punk-rock" },
-  { track_id: "7CFfqRW50ffULvBv7lfIIg", track_name: "Violent", artists: "carolesdaughter", track_genre: "indie-pop" },
-  { track_id: "3JiaA3hvuKu4Fjf6AWwVMX", track_name: "Difficult", artists: "Gracie Abrams", track_genre: "indie-pop" },
-  { track_id: "7aGyRfJWtLqgJaZoG9lJhE", track_name: "Mad at Disney", artists: "salem ilese", track_genre: "indie-pop" },
-  { track_id: "3FAJ6O0NOHQV8Mc5Ri6ENp", track_name: "Fourth of July", artists: "Sufjan Stevens", track_genre: "psych-rock" },
+  { track_id: "6dGnYIeXmHdcikdzNNDMm2", track_name: "Here Comes The Sun - Remastered 2009", artists: "The Beatles", album_name: "Abbey Road (Remastered)", track_genre: "psych-rock", popularity: 82 },
+  { track_id: "6GG73Jik4jUlQCkKg9JuGO", track_name: "The Middle", artists: "Jimmy Eat World", album_name: "Bleed American", track_genre: "punk-rock", popularity: 81 },
+  { track_id: "7B3z0ySL9Rr0XvZEAjWZzM", track_name: "Sofia", artists: "Clairo", album_name: "Immunity", track_genre: "indie-pop", popularity: 81 },
+  { track_id: "4EchqUKQ3qAQuRNKmeIpnf", track_name: "The Kids Aren't Alright", artists: "The Offspring", album_name: "Americana", track_genre: "punk-rock", popularity: 81 },
+  { track_id: "2IVsRhKrx8hlQBOWy4qebo", track_name: "Mr Loverman", artists: "Ricky Montgomery", album_name: "Montgomery Ricky", track_genre: "indie-pop", popularity: 79 },
+  { track_id: "4qbEaaJ29p32GI8EWQmm6R", track_name: "dumb dumb", artists: "mazie", album_name: "the rainbow cassette", track_genre: "indie-pop", popularity: 79 },
+  { track_id: "7DcJ6fEBb7BaKuYKTwiDxK", track_name: "Homage", artists: "Mild High Club", album_name: "Skiptracing", track_genre: "psych-rock", popularity: 78 },
+  { track_id: "1i6N76fftMZhijOzFQ5ZtL", track_name: "Psycho Killer - 2005 Remaster", artists: "Talking Heads", album_name: "Talking Heads '77 (Deluxe Version)", track_genre: "punk-rock", popularity: 78 },
+  { track_id: "5ln5yQdUywVbf8HhFsOcd6", track_name: "Walls Could Talk", artists: "Halsey", album_name: "hopeless fountain kingdom (Deluxe)", track_genre: "indie-pop", popularity: 77 },
+  { track_id: "6mFkJmJqdDVQ1REhVfGgd1", track_name: "Wish You Were Here", artists: "Pink Floyd", album_name: "Wish You Were Here", track_genre: "psych-rock", popularity: 77 },
+  { track_id: "1fJFuvU2ldmeAm5nFIHcPP", track_name: "First Date", artists: "blink-182", album_name: "Take Off Your Pants And Jacket", track_genre: "punk-rock", popularity: 77 },
+  { track_id: "3BQHpFgAp4l80e1XslIjNI", track_name: "Yesterday - Remastered 2009", artists: "The Beatles", album_name: "Help! (Remastered)", track_genre: "psych-rock", popularity: 76 },
+  { track_id: "6UFivO2zqqPFPoQYsEMuCc", track_name: "Bags", artists: "Clairo", album_name: "Immunity", track_genre: "indie-pop", popularity: 75 },
+  { track_id: "3Pzh926pXggbMe2ZpXyMV7", track_name: "Ain't No Rest for the Wicked", artists: "Cage The Elephant", album_name: "Cage The Elephant (Expanded Edition)", track_genre: "punk-rock", popularity: 74 },
+  { track_id: "5jgFfDIR6FR0gvlA56Nakr", track_name: "Blackbird - Remastered 2009", artists: "The Beatles", album_name: "The Beatles (Remastered)", track_genre: "psych-rock", popularity: 74 },
+  { track_id: "2i0AUcEnsDm3dsqLrFWUCq", track_name: "Tonight Tonight", artists: "Hot Chelle Rae", album_name: "Whatever", track_genre: "punk-rock", popularity: 73 },
+  { track_id: "7CFfqRW50ffULvBv7lfIIg", track_name: "Violent", artists: "carolesdaughter", album_name: "Violent", track_genre: "indie-pop", popularity: 72 },
+  { track_id: "3JiaA3hvuKu4Fjf6AWwVMX", track_name: "Difficult", artists: "Gracie Abrams", album_name: "Difficult", track_genre: "indie-pop", popularity: 72 },
+  { track_id: "7aGyRfJWtLqgJaZoG9lJhE", track_name: "Mad at Disney", artists: "salem ilese", album_name: "Mad at Disney", track_genre: "indie-pop", popularity: 72 },
+  { track_id: "27hhIs2fp6w06N5zx4Eaa5", track_name: "Dream A Little Dream Of Me", artists: "The Mamas & The Papas", album_name: "The Papas & The Mamas", track_genre: "psych-rock", popularity: 72 },
+  { track_id: "5oQcOu1omDykbIPSdSQQNJ", track_name: "1985", artists: "Bowling For Soup", album_name: "A Hangover You Don't Deserve", track_genre: "punk-rock", popularity: 71 },
+  { track_id: "0cKk8BKEi7zXbdrYdyqBP5", track_name: "Behind Blue Eyes", artists: "The Who", album_name: "Who's Next (Deluxe Edition)", track_genre: "psych-rock", popularity: 71 },
+  { track_id: "2ctvdKmETyOzPb2GiJJT53", track_name: "Breathe (In the Air)", artists: "Pink Floyd", album_name: "The Dark Side of the Moon", track_genre: "psych-rock", popularity: 71 },
+  { track_id: "2CJc3U1pViZ5E44pA0f2YI", track_name: "Common", artists: "Quinn XCII;Big Sean", album_name: "Common", track_genre: "indie-pop", popularity: 70 },
+  { track_id: "5gb9UJkh8TfrNMRYOJNbew", track_name: "Gives You Hell", artists: "The All-American Rejects", album_name: "When The World Comes Down", track_genre: "punk-rock", popularity: 70 },
+  { track_id: "7uEcCGtM1FBBGIhPozhJjv", track_name: "Daydream Believer", artists: "The Monkees", album_name: "The Birds, The Bees, & The Monkees", track_genre: "psych-rock", popularity: 70 },
+  { track_id: "73W5aXorr5vxrySFcoZqIN", track_name: "Renegade", artists: "Big Red Machine;Taylor Swift", album_name: "How Long Do You Think It's Gonna Last?", track_genre: "indie-pop", popularity: 69 },
+  { track_id: "1UKobFsdqNXQb8OthimCKe", track_name: "Helplessly Hoping - 2005 Remaster", artists: "Crosby, Stills & Nash", album_name: "Crosby, Stills & Nash", track_genre: "psych-rock", popularity: 68 },
+  { track_id: "2hitsKa8SthKhRJBXUHbIv", track_name: "Our House", artists: "Crosby, Stills, Nash & Young", album_name: "Deja Vu", track_genre: "psych-rock", popularity: 68 },
+  { track_id: "6iGU74CwXuT4XVepjc9Emf", track_name: "God Only Knows", artists: "The Beach Boys", album_name: "Pet Sounds", track_genre: "psych-rock", popularity: 68 },
+  { track_id: "6L5BZEcZmD6RBJnimzlyKr", track_name: "Nights In White Satin", artists: "The Moody Blues", album_name: "Days Of Future Passed", track_genre: "psych-rock", popularity: 68 },
+  { track_id: "6pnwfWyaWjQiHCKTiZLItr", track_name: "Shine On You Crazy Diamond (Pts. 1-5)", artists: "Pink Floyd", album_name: "Wish You Were Here", track_genre: "psych-rock", popularity: 67 },
+  { track_id: "4TOMI010Sd4ZAX4aZ5TS85", track_name: "Perfect Day", artists: "Lou Reed", album_name: "Transformer", track_genre: "psych-rock", popularity: 67 },
+  { track_id: "6yLIqXX9edg1x0HZS7cZEv", track_name: "The Air That I Breathe", artists: "The Hollies", album_name: "Hollies", track_genre: "psych-rock", popularity: 66 },
+  { track_id: "11VwZwNF29HrqwalYUMitb", track_name: "Pale Blue Eyes", artists: "The Velvet Underground", album_name: "The Velvet Underground", track_genre: "psych-rock", popularity: 65 },
+  { track_id: "11607FzqoipskTsXrwEHnJ", track_name: "Sunday Morning", artists: "The Velvet Underground", album_name: "The Velvet Underground & Nico", track_genre: "psych-rock", popularity: 65 },
+  { track_id: "3mlMpmY8oZIBFc39D9zLbh", track_name: "The Long And Winding Road", artists: "The Beatles", album_name: "Let It Be (Remastered)", track_genre: "psych-rock", popularity: 64 },
+  { track_id: "0WNGPpmWqzPnk0psUhJ3SX", track_name: "All the Young Dudes", artists: "Mott The Hoople", album_name: "All The Young Dudes", track_genre: "psych-rock", popularity: 64 },
+  { track_id: "2O3l4X1yTua8oMMCtazkyo", track_name: "The Happiest Days of Our Lives", artists: "Pink Floyd", album_name: "The Wall", track_genre: "psych-rock", popularity: 59 },
+  { track_id: "0vMr3GXZJi1IIIWE8bBJuZ", track_name: "Plants", artists: "Crumb", album_name: "Locket", track_genre: "psych-rock", popularity: 59 },
+  { track_id: "0B6oBwvkyLptGexpwJVz7c", track_name: "Balloon", artists: "Crumb", album_name: "Ice Melt", track_genre: "psych-rock", popularity: 59 },
+  { track_id: "60ifqqPhbselSwXyGrGyMK", track_name: "Soldier Of Fortune", artists: "Deep Purple", album_name: "Stormbringer", track_genre: "psych-rock", popularity: 59 },
+  { track_id: "21j1PsCiTaO8ZW88UZrh3A", track_name: "Shine On You Crazy Diamond (Pts. 6-9)", artists: "Pink Floyd", album_name: "Wish You Were Here", track_genre: "psych-rock", popularity: 58 },
+  { track_id: "54qG9hpUjLgkgTJQ9qvB1P", track_name: "Dear Angie", artists: "Badfinger", album_name: "Magic Christian Music", track_genre: "psych-rock", popularity: 58 },
+  { track_id: "5a4MgIUSf9K8wXLSm6xPEx", track_name: "High Hopes", artists: "Pink Floyd", album_name: "The Division Bell", track_genre: "psych-rock", popularity: 57 },
 ];
 
-interface DatasetTrack {
-  track_id: string;
-  artists: string;
-  album_name: string;
-  track_name: string;
-  popularity: number;
-  duration_ms: number;
-  danceability: number;
-  energy: number;
-  key: number;
-  loudness: number;
-  mode: number;
-  speechiness: number;
-  acousticness: number;
-  instrumentalness: number;
-  liveness: number;
-  valence: number;
-  tempo: number;
-  time_signature: number;
-  track_genre: string;
-}
+const FEATURE_COLUMNS = ["danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo"];
 
-interface NormalizedTrack extends DatasetTrack {
-  danceability_norm: number;
-  energy_norm: number;
-  key_norm: number;
-  loudness_norm: number;
-  mode_norm: number;
-  speechiness_norm: number;
-  acousticness_norm: number;
-  instrumentalness_norm: number;
-  liveness_norm: number;
-  valence_norm: number;
-  tempo_norm: number;
-}
-
-const FEATURE_COLS = [
-  'danceability', 'energy', 'key', 'loudness', 'mode',
-  'speechiness', 'acousticness', 'instrumentalness',
-  'liveness', 'valence', 'tempo'
-] as const;
-
-async function fetchWithAuth(url: string, accessToken: string) {
-  const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${accessToken}` }
+function prepare_kaggle_data(raw_kaggle: any[]) {
+  let data = raw_kaggle.filter(row => {
+    if (!row.track_genre) return false;
+    for (const col of FEATURE_COLUMNS) {
+      if (row[col] === null || row[col] === undefined || isNaN(row[col])) return false;
+    }
+    return true;
   });
-  return response;
-}
 
-// Normalize string for matching: lowercase, remove special chars, trim whitespace
-function normalizeForMatch(str: string): string {
-  return str
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '') // Remove special characters
-    .replace(/\s+/g, ' ')    // Normalize whitespace
-    .trim();
-}
-
-// Create a match key from track name + first artist
-function createMatchKey(trackName: string, artists: string): string {
-  const normalizedTrack = normalizeForMatch(trackName);
-  // Get first artist (artists may be comma-separated or semicolon-separated)
-  const firstArtist = artists.split(/[,;]/)[0].trim();
-  const normalizedArtist = normalizeForMatch(firstArtist);
-  return `${normalizedTrack}|||${normalizedArtist}`;
-}
-
-// Parse CSV to tracks
-function parseCSV(csvText: string): DatasetTrack[] {
-  const lines = csvText.trim().split('\n');
-  const tracks: DatasetTrack[] = [];
-  
-  // Skip header
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    
-    // Handle CSV parsing with potential commas in quoted fields
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (const char of line) {
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    values.push(current.trim());
-    
-    // CSV columns: index, track_id, artists, album_name, track_name, popularity, duration_ms, explicit, 
-    // danceability, energy, key, loudness, mode, speechiness, acousticness, instrumentalness, 
-    // liveness, valence, tempo, time_signature, track_genre
-    if (values.length >= 21) {
-      const track: DatasetTrack = {
-        track_id: values[1],
-        artists: values[2],
-        album_name: values[3],
-        track_name: values[4],
-        popularity: parseFloat(values[5]) || 0,
-        duration_ms: parseFloat(values[6]) || 0,
-        danceability: parseFloat(values[8]) || 0,
-        energy: parseFloat(values[9]) || 0,
-        key: parseFloat(values[10]) || 0,
-        loudness: parseFloat(values[11]) || 0,
-        mode: parseFloat(values[12]) || 0,
-        speechiness: parseFloat(values[13]) || 0,
-        acousticness: parseFloat(values[14]) || 0,
-        instrumentalness: parseFloat(values[15]) || 0,
-        liveness: parseFloat(values[16]) || 0,
-        valence: parseFloat(values[17]) || 0,
-        tempo: parseFloat(values[18]) || 0,
-        time_signature: parseFloat(values[19]) || 4,
-        track_genre: values[20] || '',
-      };
-      
-      if (track.track_id && track.track_genre) {
-        tracks.push(track);
-      }
-    }
-  }
-  
-  return tracks;
-}
-
-// MinMax normalize features
-function normalizeFeatures(tracks: DatasetTrack[]): { data: NormalizedTrack[], mins: Record<string, number>, maxs: Record<string, number> } {
-  const mins: Record<string, number> = {};
-  const maxs: Record<string, number> = {};
-  
-  // Find min/max for each feature
-  for (const col of FEATURE_COLS) {
-    mins[col] = Infinity;
-    maxs[col] = -Infinity;
-    for (const track of tracks) {
-      const val = track[col as keyof DatasetTrack] as number;
+  const mins: Record<string, number> = {}, maxs: Record<string, number> = {};
+  for (const col of FEATURE_COLUMNS) {
+    mins[col] = Infinity; maxs[col] = -Infinity;
+    for (const row of data) {
+      const val = parseFloat(row[col]);
       if (val < mins[col]) mins[col] = val;
       if (val > maxs[col]) maxs[col] = val;
     }
   }
-  
-  // Normalize
-  const normalized: NormalizedTrack[] = tracks.map(track => {
-    const normTrack = { ...track } as NormalizedTrack;
-    for (const col of FEATURE_COLS) {
-      const val = track[col as keyof DatasetTrack] as number;
-      const range = maxs[col] - mins[col];
-      (normTrack as any)[`${col}_norm`] = range > 0 ? (val - mins[col]) / range : 0;
+
+  const normalized_columns = FEATURE_COLUMNS.map(c => `${c}_norm`);
+  for (const row of data) {
+    for (let i = 0; i < FEATURE_COLUMNS.length; i++) {
+      const col = FEATURE_COLUMNS[i], norm_col = normalized_columns[i];
+      const val = parseFloat(row[col]), range = maxs[col] - mins[col];
+      row[norm_col] = range > 0 ? (val - mins[col]) / range : 0;
     }
-    return normTrack;
-  });
-  
-  return { data: normalized, mins, maxs };
-}
-
-// Get normalized feature vector
-function getFeatureVector(track: NormalizedTrack): number[] {
-  return FEATURE_COLS.map(col => (track as any)[`${col}_norm`] || 0);
-}
-
-// Cosine similarity between two vectors
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
   }
-  
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom > 0 ? dotProduct / denom : 0;
+  return { data, normalized_columns };
 }
 
-// Simple KMeans clustering implementation
-function kMeansCluster(tracks: NormalizedTrack[], k: number, maxIterations = 10): Map<number, NormalizedTrack[]> {
-  if (tracks.length === 0) return new Map();
-  
-  const n = tracks.length;
-  k = Math.min(k, n);
-  
-  // Initialize centroids randomly from data points
-  const centroidIndices = new Set<number>();
-  while (centroidIndices.size < k) {
-    centroidIndices.add(Math.floor(Math.random() * n));
+class KMeans {
+  n_clusters: number; random_state: number; n_init: number; cluster_centers_: number[][] = [];
+  constructor(n_clusters: number, random_state = 42, n_init = 10) {
+    this.n_clusters = n_clusters; this.random_state = random_state; this.n_init = n_init;
   }
-  let centroids = [...centroidIndices].map(i => getFeatureVector(tracks[i]));
-  
-  let assignments = new Array(n).fill(0);
-  
-  for (let iter = 0; iter < maxIterations; iter++) {
-    // Assign each point to nearest centroid
-    for (let i = 0; i < n; i++) {
-      const point = getFeatureVector(tracks[i]);
-      let bestCluster = 0;
-      let bestSim = -1;
-      
-      for (let c = 0; c < k; c++) {
-        const sim = cosineSimilarity(point, centroids[c]);
-        if (sim > bestSim) {
-          bestSim = sim;
-          bestCluster = c;
+  private seededRandom(seed: number) { return function() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }; }
+  fit(X: number[][]) {
+    const n_samples = X.length, n_features = X[0].length, k = Math.min(this.n_clusters, n_samples);
+    let best_inertia = Infinity, best_centers: number[][] = [];
+    for (let init = 0; init < this.n_init; init++) {
+      const random = this.seededRandom(this.random_state + init);
+      const centroid_indices: number[] = [];
+      while (centroid_indices.length < k) { const idx = Math.floor(random() * n_samples); if (!centroid_indices.includes(idx)) centroid_indices.push(idx); }
+      let centroids = centroid_indices.map(i => [...X[i]]), labels = new Array(n_samples).fill(0);
+      for (let iter = 0; iter < 100; iter++) {
+        const prev_labels = [...labels];
+        for (let i = 0; i < n_samples; i++) {
+          let best_cluster = 0, best_dist = Infinity;
+          for (let c = 0; c < k; c++) { let dist = 0; for (let f = 0; f < n_features; f++) dist += Math.pow(X[i][f] - centroids[c][f], 2); if (dist < best_dist) { best_dist = dist; best_cluster = c; } }
+          labels[i] = best_cluster;
         }
+        let converged = true; for (let i = 0; i < n_samples; i++) if (labels[i] !== prev_labels[i]) { converged = false; break; }
+        if (converged) break;
+        const new_centroids = Array(k).fill(null).map(() => new Array(n_features).fill(0)), counts = new Array(k).fill(0);
+        for (let i = 0; i < n_samples; i++) { counts[labels[i]]++; for (let f = 0; f < n_features; f++) new_centroids[labels[i]][f] += X[i][f]; }
+        for (let c = 0; c < k; c++) if (counts[c] > 0) for (let f = 0; f < n_features; f++) new_centroids[c][f] /= counts[c];
+        centroids = new_centroids;
       }
-      assignments[i] = bestCluster;
+      let inertia = 0; for (let i = 0; i < n_samples; i++) for (let f = 0; f < n_features; f++) inertia += Math.pow(X[i][f] - centroids[labels[i]][f], 2);
+      if (inertia < best_inertia) { best_inertia = inertia; best_centers = centroids; }
     }
-    
-    // Update centroids
-    const newCentroids: number[][] = Array(k).fill(null).map(() => 
-      new Array(FEATURE_COLS.length).fill(0)
-    );
-    const counts = new Array(k).fill(0);
-    
-    for (let i = 0; i < n; i++) {
-      const cluster = assignments[i];
-      const point = getFeatureVector(tracks[i]);
-      counts[cluster]++;
-      for (let j = 0; j < point.length; j++) {
-        newCentroids[cluster][j] += point[j];
-      }
-    }
-    
-    for (let c = 0; c < k; c++) {
-      if (counts[c] > 0) {
-        for (let j = 0; j < newCentroids[c].length; j++) {
-          newCentroids[c][j] /= counts[c];
-        }
-      }
-    }
-    centroids = newCentroids;
+    this.cluster_centers_ = best_centers;
   }
-  
-  // Group tracks by cluster
-  const clusters = new Map<number, NormalizedTrack[]>();
-  for (let i = 0; i < n; i++) {
-    const cluster = assignments[i];
-    if (!clusters.has(cluster)) clusters.set(cluster, []);
-    clusters.get(cluster)!.push(tracks[i]);
+  predict(X: number[][]) {
+    const labels: number[] = [], n_features = X[0].length;
+    for (const point of X) {
+      let best_cluster = 0, best_dist = Infinity;
+      for (let c = 0; c < this.cluster_centers_.length; c++) { let dist = 0; for (let f = 0; f < n_features; f++) dist += Math.pow(point[f] - this.cluster_centers_[c][f], 2); if (dist < best_dist) { best_dist = dist; best_cluster = c; } }
+      labels.push(best_cluster);
+    }
+    return labels;
   }
-  
-  return clusters;
 }
 
-// Build KMeans models per genre (like notebook)
-function buildKMeansPerGenre(
-  userGenres: string[],
-  data: NormalizedTrack[],
-  nClusters = 15,
-  minSongsPerGenre = 100
-): Map<string, { clusters: Map<number, NormalizedTrack[]>, genreTracks: NormalizedTrack[] }> {
-  const genreModels = new Map<string, { clusters: Map<number, NormalizedTrack[]>, genreTracks: NormalizedTrack[] }>();
-  
-  for (const genre of userGenres) {
-    const genreTracks = data.filter(t => t.track_genre === genre);
-    
-    if (genreTracks.length < minSongsPerGenre) {
-      console.log(`Skipping genre ${genre}: only ${genreTracks.length} songs`);
-      continue;
-    }
-    
-    const k = Math.min(nClusters, Math.max(2, Math.floor(genreTracks.length / 5)));
-    console.log(`Building ${k} clusters for genre ${genre} (${genreTracks.length} songs)`);
-    
-    const clusters = kMeansCluster(genreTracks, k);
-    genreModels.set(genre, { clusters, genreTracks });
+function build_kmeans_per_genre(top_songs_clean: any[], data: any[], normalized_columns: string[], n_clusters = 15, min_songs = 100) {
+  const user_genres = [...new Set(top_songs_clean.map(r => r.track_genre).filter(Boolean))];
+  console.log(`Genres in seed tracks: ${user_genres.join(', ')}`);
+  const genre_kmeans = new Map<string, KMeans>();
+  for (const genre of user_genres) {
+    const idx = data.map((r, i) => r.track_genre === genre ? i : -1).filter(i => i >= 0);
+    if (idx.length < min_songs) { console.log(`  ✗ ${genre}: ${idx.length} songs (<${min_songs})`); continue; }
+    const X = idx.map(i => normalized_columns.map(col => data[i][col] || 0));
+    const k = Math.min(n_clusters, Math.max(2, Math.floor(idx.length / 5)));
+    const kmeans = new KMeans(k, 42, 10); kmeans.fit(X);
+    genre_kmeans.set(genre, kmeans);
+    console.log(`  ✓ ${genre}: ${idx.length} songs -> ${k} clusters`);
   }
-  
-  return genreModels;
+  return genre_kmeans;
 }
 
-// Get recommendations for a single track using cluster-based approach
-function getRecommendationsByGenre(
-  inputTrack: NormalizedTrack,
-  genreModels: Map<string, { clusters: Map<number, NormalizedTrack[]>, genreTracks: NormalizedTrack[] }>,
-  numRecommendations = 5
-): NormalizedTrack[] {
-  const inputGenre = inputTrack.track_genre;
-  
-  if (!genreModels.has(inputGenre)) {
-    return [];
+function get_recommendations(top_tracks: any[], data: any[], genre_kmeans: Map<string, KMeans>, normalized_columns: string[], recs_per_song = 10) {
+  const all_recs: any[] = [];
+  for (const track of top_tracks) {
+    const input_idx = data.findIndex(r => r.track_id === track.track_id);
+    if (input_idx === -1 || !genre_kmeans.has(data[input_idx].track_genre)) continue;
+    const input_song = data[input_idx], kmeans = genre_kmeans.get(input_song.track_genre)!;
+    const input_features = normalized_columns.map(col => input_song[col] || 0);
+    const input_cluster = kmeans.predict([input_features])[0];
+    const genre_data = data.filter(r => r.track_genre === input_song.track_genre);
+    const genre_X = genre_data.map(r => normalized_columns.map(col => r[col] || 0));
+    const cluster_labels = kmeans.predict(genre_X);
+    let cluster_data = genre_data.filter((_, i) => cluster_labels[i] === input_cluster);
+    if (cluster_data.length < recs_per_song + 1) cluster_data = genre_data;
+    cluster_data = cluster_data.filter(r => r.track_id !== track.track_id).sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    all_recs.push(...cluster_data.slice(0, recs_per_song));
   }
-  
-  const { clusters, genreTracks } = genreModels.get(inputGenre)!;
-  const inputVector = getFeatureVector(inputTrack);
-  
-  // Find which cluster the input track belongs to
-  let bestCluster = 0;
-  let bestSim = -1;
-  
-  for (const [clusterId, clusterTracks] of clusters) {
-    if (clusterTracks.length === 0) continue;
-    
-    // Calculate cluster centroid
-    const centroid = new Array(FEATURE_COLS.length).fill(0);
-    for (const track of clusterTracks) {
-      const vec = getFeatureVector(track);
-      for (let i = 0; i < vec.length; i++) {
-        centroid[i] += vec[i];
-      }
-    }
-    for (let i = 0; i < centroid.length; i++) {
-      centroid[i] /= clusterTracks.length;
-    }
-    
-    const sim = cosineSimilarity(inputVector, centroid);
-    if (sim > bestSim) {
-      bestSim = sim;
-      bestCluster = clusterId;
-    }
-  }
-  
-  // Get tracks from same cluster
-  let clusterTracks = clusters.get(bestCluster) || [];
-  
-  // Exclude the input track itself
-  clusterTracks = clusterTracks.filter(t => t.track_id !== inputTrack.track_id);
-  
-  // If not enough tracks in cluster, use all genre tracks
-  if (clusterTracks.length < numRecommendations + 1) {
-    clusterTracks = genreTracks.filter(t => t.track_id !== inputTrack.track_id);
-  }
-  
-  // Sort by popularity and return top N
-  clusterTracks.sort((a, b) => b.popularity - a.popularity);
-  
-  return clusterTracks.slice(0, numRecommendations);
+  const seen = new Set<string>(), unique: any[] = [];
+  for (const r of all_recs) if (!seen.has(r.track_id)) { seen.add(r.track_id); unique.push(r); }
+  const top_ids = new Set(top_tracks.map(t => t.track_id));
+  return unique.filter(r => !top_ids.has(r.track_id)).sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
 }
 
-// Get all track IDs from user's playlists
-async function getAllUserPlaylistTrackIds(accessToken: string): Promise<Set<string>> {
-  const knownTrackIds = new Set<string>();
-  
-  try {
-    // Get current user
-    const userResponse = await fetchWithAuth('https://api.spotify.com/v1/me', accessToken);
-    const userData = await userResponse.json();
-    const userId = userData.id;
-    
-    // Get user's playlists
-    let offset = 0;
-    const limit = 50;
-    
-    while (true) {
-      const playlistsResponse = await fetchWithAuth(
-        `https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=${offset}`,
-        accessToken
-      );
-      
-      if (!playlistsResponse.ok) break;
-      
-      const playlistsData = await playlistsResponse.json();
-      const playlists = playlistsData.items || [];
-      
-      // Only process playlists owned by user
-      for (const playlist of playlists) {
-        if (playlist.owner?.id !== userId) continue;
-        
-        // Get tracks from playlist
-        let trackOffset = 0;
-        while (true) {
-          const tracksResponse = await fetchWithAuth(
-            `https://api.spotify.com/v1/playlists/${playlist.id}/tracks?limit=100&offset=${trackOffset}`,
-            accessToken
-          );
-          
-          if (!tracksResponse.ok) break;
-          
-          const tracksData = await tracksResponse.json();
-          const items = tracksData.items || [];
-          
-          for (const item of items) {
-            if (item.track?.id) {
-              knownTrackIds.add(item.track.id);
-            }
-          }
-          
-          if (!tracksData.next) break;
-          trackOffset += 100;
-          
-          // Limit to avoid timeout
-          if (trackOffset > 500) break;
-        }
-      }
-      
-      if (!playlistsData.next) break;
-      offset += limit;
-      
-      // Limit to avoid timeout
-      if (offset > 200) break;
-    }
-    
-    console.log(`Found ${knownTrackIds.size} tracks in user playlists`);
-  } catch (error) {
-    console.error('Error fetching user playlists:', error);
+function parseCSV(csvText: string) {
+  const lines = csvText.trim().split('\n'), headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '')), tracks: any[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const values: string[] = []; let current = '', inQuotes = false;
+    for (const char of lines[i]) { if (char === '"') inQuotes = !inQuotes; else if (char === ',' && !inQuotes) { values.push(current.trim().replace(/"/g, '')); current = ''; } else current += char; }
+    values.push(current.trim().replace(/"/g, ''));
+    const track: any = {};
+    headers.forEach((h, idx) => { const v = values[idx] || ''; track[h] = ['popularity','duration_ms','danceability','energy','key','loudness','mode','speechiness','acousticness','instrumentalness','liveness','valence','tempo','time_signature'].includes(h) ? parseFloat(v) || 0 : v; });
+    if (track.track_id) tracks.push(track);
   }
-  
-  return knownTrackIds;
+  return tracks;
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   try {
     const { access_token, playlist_name, num_tracks = 30 } = await req.json();
+    if (!access_token) return new Response(JSON.stringify({ error: 'Access token required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    if (!access_token) {
-      return new Response(
-        JSON.stringify({ error: 'Access token required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    console.log('=== Starting playlist creation ===');
+    const datasetResponse = await fetch(DATASET_URL);
+    if (!datasetResponse.ok) throw new Error(`Failed to fetch dataset: ${datasetResponse.status}`);
+    const raw_kaggle = parseCSV(await datasetResponse.text());
+    console.log(`Loaded ${raw_kaggle.length} tracks`);
+
+    const { data, normalized_columns } = prepare_kaggle_data(raw_kaggle);
+    console.log(`Prepared ${data.length} tracks`);
+
+    const seedTrackIds = new Set(SEED_TRACKS.map(t => t.track_id));
+    const top_songs_clean = data.filter(row => seedTrackIds.has(row.track_id));
+    console.log(`Matched ${top_songs_clean.length} of ${SEED_TRACKS.length} seed tracks`);
+    if (top_songs_clean.length === 0) throw new Error('No seed tracks found in dataset');
+
+    const genre_kmeans = build_kmeans_per_genre(top_songs_clean, data, normalized_columns, 15, 100);
+    if (genre_kmeans.size === 0) throw new Error('Could not build any genre models');
+
+    const recommendations = get_recommendations(top_songs_clean, data, genre_kmeans, normalized_columns, 10);
+    const finalRecs = recommendations.slice(0, num_tracks);
+    console.log(`Final recommendations: ${finalRecs.length}`);
+    if (finalRecs.length === 0) throw new Error('Could not generate recommendations');
+
+    const userResponse = await fetch('https://api.spotify.com/v1/me', { headers: { 'Authorization': `Bearer ${access_token}` } });
+    if (!userResponse.ok) throw new Error('Failed to get user info');
+    const user_id = (await userResponse.json()).id;
+    const finalPlaylistName = playlist_name || `TrendTracks For You - ${new Date().toLocaleDateString('en-GB')}`;
+
+    const createPlaylistResponse = await fetch(`https://api.spotify.com/v1/users/${user_id}/playlists`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: finalPlaylistName, description: 'Playlist with songs you may like - Created by TrendTracks', public: false })
+    });
+    if (!createPlaylistResponse.ok) throw new Error(`Failed to create playlist: ${await createPlaylistResponse.text()}`);
+    const playlist = await createPlaylistResponse.json();
+
+    const uris = finalRecs.map(t => `spotify:track:${t.track_id}`);
+    for (let i = 0; i < uris.length; i += 100) {
+      await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uris: uris.slice(i, i + 100) })
+      });
     }
+    console.log(`${finalRecs.length} songs added to playlist`);
 
-    const today = new Date().toLocaleDateString('en-GB');
-    const finalPlaylistName = playlist_name || `TrendTracks For You - ${today}`;
-    console.log('Creating playlist:', finalPlaylistName);
-
-    // Step 1: Fetch dataset
-    console.log('Fetching dataset from:', DATASET_URL);
-    let datasetResponse;
-    try {
-      datasetResponse = await fetch(DATASET_URL);
-      console.log('Dataset response status:', datasetResponse.status);
-    } catch (fetchError) {
-      console.error('Fetch error:', fetchError);
-      return new Response(
-        JSON.stringify({ error: 'Network error fetching music database' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    if (!datasetResponse.ok) {
-      const errorText = await datasetResponse.text().catch(() => 'Unknown error');
-      console.error('Failed to fetch dataset:', datasetResponse.status, errorText.substring(0, 500));
-      return new Response(
-        JSON.stringify({ error: `Failed to load music database (${datasetResponse.status})` }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    const csvText = await datasetResponse.text();
-    console.log(`Dataset fetched, size: ${csvText.length} chars, parsing...`);
-    
-    const rawTracks = parseCSV(csvText);
-    console.log(`Parsed ${rawTracks.length} tracks from dataset`);
-
-    // Step 2: Use pre-defined seed tracks instead of user's top tracks (FOR TESTING)
-    console.log('Using pre-defined seed playlist (20 tracks from dataset)');
-    const userTopTracks = SEED_TRACKS;
-    const userTrackIds = SEED_TRACKS.map(t => t.track_id);
-    console.log(`Using ${userTopTracks.length} seed tracks`);
-
-    // Step 3: Normalize dataset features
-    console.log('Normalizing dataset features...');
-    const { data: normalizedData, mins, maxs } = normalizeFeatures(rawTracks);
-
-    // Step 4: Match seed tracks with dataset (they're guaranteed to match by track_id)
-    const userTracksWithFeatures: NormalizedTrack[] = [];
-
-    for (const seedTrack of SEED_TRACKS) {
-      const datasetTrack = normalizedData.find(t => t.track_id === seedTrack.track_id);
-      if (datasetTrack) {
-        userTracksWithFeatures.push(datasetTrack);
-        console.log(`Matched seed: "${seedTrack.track_name}" by "${seedTrack.artists}" (${seedTrack.track_genre})`);
-      } else {
-        console.log(`WARNING: Seed track not found in dataset: "${seedTrack.track_name}"`);
-      }
-    }
-
-    console.log(`Matched ${userTracksWithFeatures.length} of ${SEED_TRACKS.length} seed tracks with dataset`);
-
-    // Step 5: Get genres from seed tracks
-    let userGenres = [...new Set(SEED_TRACKS.map(t => t.track_genre).filter(g => g))];
-    console.log(`Seed playlist genres: ${userGenres.join(', ')}`);
-
-    // Step 6: Build KMeans models per genre (15 clusters, min 100 songs per genre)
-    console.log('Building KMeans clusters per genre...');
-    const genreModels = buildKMeansPerGenre(userGenres, normalizedData, 15, 100);
-    console.log(`Built models for ${genreModels.size} genres`);
-    
-    // DEBUG: Log which genres got models
-    if (genreModels.size > 0) {
-      for (const [genre, model] of genreModels) {
-        console.log(`  - ${genre}: ${model.clusters.size} clusters, ${model.genreTracks.length} total tracks`);
-      }
-    } else {
-      console.log('WARNING: No genre models were built!');
-      console.log('User genres attempted:', userGenres);
-    }
-
-    // Step 7: Get all known track IDs from user's playlists to exclude
-    console.log('Fetching user playlist tracks to exclude...');
-    const knownTrackIds = await getAllUserPlaylistTrackIds(access_token);
-    
-    // Add user's top tracks to exclusion set
-    for (const trackId of userTrackIds) {
-      knownTrackIds.add(trackId);
-    }
-    console.log(`Excluding ${knownTrackIds.size} known tracks`);
-
-    // Step 8: Get recommendations
-    console.log('Generating recommendations using KMeans clustering...');
-    const allRecommendations = new Map<string, NormalizedTrack>();
-    
-    if (userTracksWithFeatures.length > 0) {
-      // If we have matched tracks, use cluster-based recommendations
-      for (const userTrack of userTracksWithFeatures) {
-        const recs = getRecommendationsByGenre(userTrack, genreModels, 10);
-        for (const rec of recs) {
-          if (knownTrackIds.has(rec.track_id)) continue;
-          if (!allRecommendations.has(rec.track_id)) {
-            allRecommendations.set(rec.track_id, rec);
-          }
-        }
-      }
-    } else {
-      // If no matched tracks, get top tracks from each genre's clusters
-      for (const genre of userGenres) {
-        const model = genreModels.get(genre);
-        if (!model) continue;
-        
-        // Get tracks from each cluster, sorted by popularity
-        for (const [clusterId, clusterTracks] of model.clusters) {
-          const sortedCluster = [...clusterTracks].sort((a, b) => b.popularity - a.popularity);
-          for (const track of sortedCluster.slice(0, 5)) {
-            if (knownTrackIds.has(track.track_id)) continue;
-            if (!allRecommendations.has(track.track_id)) {
-              allRecommendations.set(track.track_id, track);
-            }
-          }
-        }
-      }
-    }
-
-    console.log(`Generated ${allRecommendations.size} unique recommendations`);
-    
-    // DEBUG: If no recommendations, explain why
-    if (allRecommendations.size === 0) {
-      console.log('No recommendations generated because:');
-      if (userTracksWithFeatures.length === 0) {
-        console.log('  - No user tracks matched the dataset');
-      }
-      if (genreModels.size === 0) {
-        console.log('  - No KMeans models were built');
-      }
-      console.log('  - Genres attempted:', userGenres);
-      console.log('  - Known track IDs to exclude:', knownTrackIds.size);
-    }
-
-    // Sort by popularity and take top N
-    const sortedRecommendations = [...allRecommendations.values()]
-      .sort((a, b) => b.popularity - a.popularity)
-      .slice(0, num_tracks);
-
-    console.log(`Final recommendations: ${sortedRecommendations.length}`);
-
-    if (sortedRecommendations.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Could not generate recommendations based on your listening history',
-          debug: {
-            user_top_tracks: userTopTracks.length,
-            matched_tracks: userTracksWithFeatures.length,
-            genres_found: userGenres,
-            genre_models_built: genreModels.size,
-            sample_user_tracks: userTopTracks.slice(0, 5).map((t: any) => ({
-              name: t.name,
-              artist: t.artists?.[0]?.name
-            }))
-          }
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Step 9: Get user info for playlist creation
-    const userResponse = await fetchWithAuth('https://api.spotify.com/v1/me', access_token);
-    const userData = await userResponse.json();
-
-    // Step 10: Create playlist
-    const createPlaylistResponse = await fetch(
-      `https://api.spotify.com/v1/users/${userData.id}/playlists`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: finalPlaylistName,
-          description: `ML-based recommendations from genres: ${userGenres.slice(0, 5).join(', ')} - Created by TrendTracks`,
-          public: false
-        })
-      }
-    );
-
-    if (!createPlaylistResponse.ok) {
-      const errorText = await createPlaylistResponse.text();
-      console.error('Failed to create playlist:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to create playlist on Spotify' }),
-        { status: createPlaylistResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const newPlaylist = await createPlaylistResponse.json();
-    console.log(`Created playlist: ${newPlaylist.id}`);
-
-    // Step 11: Add tracks to playlist in batches
-    const trackUris = sortedRecommendations.map(t => `spotify:track:${t.track_id}`);
-
-    for (let i = 0; i < trackUris.length; i += 100) {
-      const batch = trackUris.slice(i, i + 100);
-      await fetch(
-        `https://api.spotify.com/v1/playlists/${newPlaylist.id}/tracks`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${access_token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ uris: batch })
-        }
-      );
-    }
-
-    console.log(`Added ${trackUris.length} tracks to playlist`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        playlist_id: newPlaylist.id,
-        playlist_url: newPlaylist.external_urls?.spotify,
-        tracks_added: trackUris.length,
-        genres_used: userGenres.slice(0, 5),
-        recommendations: sortedRecommendations.slice(0, 10).map(t => ({
-          id: t.track_id,
-          name: t.track_name,
-          artist: t.artists,
-          album: t.album_name,
-          genre: t.track_genre,
-          popularity: t.popularity
-        }))
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('Error creating playlist:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create playlist' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      success: true, playlist_id: playlist.id, playlist_url: playlist.external_urls?.spotify, tracks_added: finalRecs.length,
+      genres_used: [...genre_kmeans.keys()], matched_seed_tracks: top_songs_clean.length,
+      recommendations: finalRecs.slice(0, 10).map(t => ({ id: t.track_id, name: t.track_name, artist: t.artists, genre: t.track_genre, popularity: t.popularity }))
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  } catch (error: any) {
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ error: error.message || 'Failed to create playlist' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

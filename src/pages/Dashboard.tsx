@@ -227,7 +227,6 @@ const Dashboard = () => {
           {/* Analytics Tab */}
           <TabsContent value="graphs" className="space-y-6">
             <AnalyticsCharts
-              datasetStats={datasetStats}
               hasPlaylistData={generatedPlaylist.length > 0}
               playlistTracks={getPlaylistTracks()}
               combinedAudioFeatures={getCombinedAudioFeatures()}

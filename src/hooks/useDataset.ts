@@ -5,6 +5,7 @@ export function useDataset() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<ReturnType<typeof computeStats> | null>(null);
+  const [tracks, setTracks] = useState<Track[]>([]);
 
   useEffect(() => {
     async function loadData() {
@@ -13,8 +14,9 @@ export function useDataset() {
         if (!response.ok) throw new Error('Failed to load dataset');
         
         const csvText = await response.text();
-        const tracks = parseCSV(csvText);
-        const computedStats = computeStats(tracks);
+        const parsedTracks = parseCSV(csvText);
+        const computedStats = computeStats(parsedTracks);
+        setTracks(parsedTracks);
         setStats(computedStats);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -26,5 +28,5 @@ export function useDataset() {
     loadData();
   }, []);
 
-  return { loading, error, stats };
+  return { loading, error, stats, tracks };
 }

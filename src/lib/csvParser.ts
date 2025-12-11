@@ -1,23 +1,53 @@
+/**
+ * @fileoverview CSV parser and statistics calculator for the music dataset
+ * 
+ * This module provides:
+ * - CSV parsing for the 114k track dataset
+ * - Statistical computations for genre distribution, audio features, etc.
+ * - Data transformations for visualization
+ */
+
+/** Track data structure matching the dataset columns */
 export interface Track {
+  /** Spotify track ID */
   track_id: string;
+  /** Artist name(s), semicolon-separated if multiple */
   artists: string;
+  /** Album name */
   album_name: string;
+  /** Track title */
   track_name: string;
+  /** Spotify popularity score (0-100) */
   popularity: number;
+  /** Track duration in milliseconds */
   duration_ms: number;
+  /** Whether the track has explicit content */
   explicit: boolean;
+  /** Danceability score (0-1) */
   danceability: number;
+  /** Energy score (0-1) */
   energy: number;
+  /** Musical key (0-11 representing C through B) */
   key: number;
+  /** Loudness in dB */
   loudness: number;
+  /** Mode (0 = minor, 1 = major) */
   mode: number;
+  /** Speechiness score (0-1) */
   speechiness: number;
+  /** Acousticness score (0-1) */
   acousticness: number;
+  /** Instrumentalness score (0-1) */
   instrumentalness: number;
+  /** Liveness score (0-1) */
   liveness: number;
+  /** Valence/mood score (0-1, higher = happier) */
   valence: number;
+  /** Tempo in BPM */
   tempo: number;
+  /** Time signature */
   time_signature: number;
+  /** Genre classification */
   track_genre: string;
 }
 

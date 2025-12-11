@@ -171,15 +171,44 @@ function get_recommendations(top_tracks: any[], data: any[], genre_kmeans: Map<s
 }
 
 function parseCSV(csvText: string) {
-  const lines = csvText.trim().split('\n'), headers = lines[0].split(',').map(h => h.trim().replace(/"/g, '')), tracks: any[] = [];
+  const lines = csvText.trim().split('\n');
+  console.log(`CSV has ${lines.length} lines`);
+  
+  // Parse headers - skip empty first column (pandas index)
+  const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  console.log(`Raw headers sample: ${rawHeaders.slice(0, 5).join(', ')}`);
+  
+  const tracks: any[] = [];
+  const numericCols = ['popularity','duration_ms','danceability','energy','key','loudness','mode','speechiness','acousticness','instrumentalness','liveness','valence','tempo','time_signature'];
+  
   for (let i = 1; i < lines.length; i++) {
-    const values: string[] = []; let current = '', inQuotes = false;
-    for (const char of lines[i]) { if (char === '"') inQuotes = !inQuotes; else if (char === ',' && !inQuotes) { values.push(current.trim().replace(/"/g, '')); current = ''; } else current += char; }
+    if (!lines[i].trim()) continue;
+    
+    const values: string[] = []; 
+    let current = '', inQuotes = false;
+    for (const char of lines[i]) { 
+      if (char === '"') inQuotes = !inQuotes; 
+      else if (char === ',' && !inQuotes) { values.push(current.trim().replace(/"/g, '')); current = ''; } 
+      else current += char; 
+    }
     values.push(current.trim().replace(/"/g, ''));
+    
     const track: any = {};
-    headers.forEach((h, idx) => { const v = values[idx] || ''; track[h] = ['popularity','duration_ms','danceability','energy','key','loudness','mode','speechiness','acousticness','instrumentalness','liveness','valence','tempo','time_signature'].includes(h) ? parseFloat(v) || 0 : v; });
-    if (track.track_id) tracks.push(track);
+    rawHeaders.forEach((h, idx) => { 
+      if (!h) return; // Skip empty header (index column)
+      const v = values[idx] || ''; 
+      track[h] = numericCols.includes(h) ? parseFloat(v) || 0 : v; 
+    });
+    
+    if (track.track_id && track.track_id.length > 0) {
+      tracks.push(track);
+    }
   }
+  
+  if (tracks.length > 0) {
+    console.log(`Sample track_id: "${tracks[0].track_id}" (len: ${tracks[0].track_id?.length})`);
+  }
+  
   return tracks;
 }
 
@@ -190,18 +219,35 @@ serve(async (req) => {
     if (!access_token) return new Response(JSON.stringify({ error: 'Access token required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     console.log('=== Starting playlist creation ===');
+    console.log(`Fetching dataset from: ${DATASET_URL}`);
     const datasetResponse = await fetch(DATASET_URL);
+    console.log(`Dataset response status: ${datasetResponse.status}`);
     if (!datasetResponse.ok) throw new Error(`Failed to fetch dataset: ${datasetResponse.status}`);
-    const raw_kaggle = parseCSV(await datasetResponse.text());
-    console.log(`Loaded ${raw_kaggle.length} tracks`);
+    const csvText = await datasetResponse.text();
+    console.log(`CSV text length: ${csvText.length} chars`);
+    const raw_kaggle = parseCSV(csvText);
+    console.log(`Loaded ${raw_kaggle.length} tracks from CSV`);
 
     const { data, normalized_columns } = prepare_kaggle_data(raw_kaggle);
-    console.log(`Prepared ${data.length} tracks`);
+    console.log(`Prepared ${data.length} tracks with features`);
 
     const seedTrackIds = new Set(SEED_TRACKS.map(t => t.track_id));
+    console.log(`Looking for ${seedTrackIds.size} seed track IDs`);
+    console.log(`Sample seed ID: "${SEED_TRACKS[0].track_id}"`);
+    
     const top_songs_clean = data.filter(row => seedTrackIds.has(row.track_id));
     console.log(`Matched ${top_songs_clean.length} of ${SEED_TRACKS.length} seed tracks`);
-    if (top_songs_clean.length === 0) throw new Error('No seed tracks found in dataset');
+    
+    if (top_songs_clean.length === 0) {
+      // Debug: try to find any matching track
+      const testId = "6dGnYIeXmHdcikdzNNDMm2";
+      const found = data.find(t => t.track_id === testId);
+      console.log(`Manual test for "${testId}": ${found ? 'FOUND' : 'NOT FOUND'}`);
+      if (data.length > 0) {
+        console.log(`First 3 dataset track_ids: ${data.slice(0,3).map(t => `"${t.track_id}"`).join(', ')}`);
+      }
+      throw new Error('No seed tracks found in dataset');
+    }
 
     const genre_kmeans = build_kmeans_per_genre(top_songs_clean, data, normalized_columns, 15, 100);
     if (genre_kmeans.size === 0) throw new Error('Could not build any genre models');

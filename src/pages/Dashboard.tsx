@@ -291,6 +291,7 @@ const Dashboard = () => {
               spotifyLoading={spotifyLoading}
               spotifyData={spotifyData}
               isCreatingPlaylist={isCreatingPlaylist}
+              generatedPlaylist={generatedPlaylist}
               onConnect={connect}
               onCreatePlaylist={createRecommendedPlaylist}
             />

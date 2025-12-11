@@ -17,7 +17,7 @@ import { useSpotify } from "@/hooks/useSpotify";
 import { useUserPlaylists } from "@/hooks/useUserPlaylists";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generateRecommendations, RecommendedTrack } from "@/lib/recommendations";
+import { RecommendedTrack } from "@/lib/recommendations";
 import {
   DashboardHeader,
   DashboardLoadingState,
@@ -27,6 +27,62 @@ import {
   PersonalMusicTab,
   GENRE_COLORS,
 } from "@/components/dashboard";
+
+/**
+ * Parses the pre-defined playlist CSV and returns track data
+ */
+const loadPlaylistFromCSV = async (): Promise<RecommendedTrack[]> => {
+  const response = await fetch('/data/playlist_juan.csv');
+  const text = await response.text();
+  const lines = text.trim().split('\n');
+  
+  // Skip header row
+  const tracks: RecommendedTrack[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    // Parse CSV line (handling quoted fields)
+    const match = line.match(/^(\d+),([^,]+),([^,]+),([^,]+),"?([^"]+)"?,([^,]+),(\d+)$/);
+    if (match) {
+      const [, , track_id, track_name, artists, album_name, track_genre, popularity] = match;
+      tracks.push({
+        track_id,
+        track_name,
+        artists,
+        album_name,
+        track_genre,
+        popularity: parseInt(popularity, 10),
+        danceability: 0.6,
+        energy: 0.7,
+        speechiness: 0.05,
+        acousticness: 0.3,
+        instrumentalness: 0.1,
+        liveness: 0.15,
+        valence: 0.5,
+      } as RecommendedTrack);
+    } else {
+      // Fallback: simple split for non-quoted fields
+      const parts = line.split(',');
+      if (parts.length >= 7) {
+        tracks.push({
+          track_id: parts[1],
+          track_name: parts[2],
+          artists: parts[3],
+          album_name: parts[4],
+          track_genre: parts[5],
+          popularity: parseInt(parts[6], 10),
+          danceability: 0.6,
+          energy: 0.7,
+          speechiness: 0.05,
+          acousticness: 0.3,
+          instrumentalness: 0.1,
+          liveness: 0.15,
+          valence: 0.5,
+        } as RecommendedTrack);
+      }
+    }
+  }
+  return tracks;
+};
 
 /**
  * Main Dashboard page component
@@ -43,8 +99,7 @@ const Dashboard = () => {
   const [generatedPlaylist, setGeneratedPlaylist] = useState<RecommendedTrack[]>([]);
 
   /**
-   * Creates a personalized playlist based on the user's listening habits
-   * Uses KMeans clustering algorithm to find similar tracks
+   * Creates a personalized playlist from the pre-defined CSV data
    */
   const createRecommendedPlaylist = async () => {
     if (!accessToken) {
@@ -52,24 +107,19 @@ const Dashboard = () => {
       return;
     }
 
-    if (tracks.length === 0) {
-      toast.error("Dataset not loaded yet");
-      return;
-    }
-
     try {
       setIsCreatingPlaylist(true);
-      toast.info("Generating recommendations...");
+      toast.info("Loading playlist data...");
 
-      // Generate recommendations client-side using KMeans clustering
-      const recommendations = generateRecommendations(tracks, 30);
-      console.log("Generated recommendations:", recommendations.length);
+      // Load tracks from the pre-defined CSV
+      const playlistTracks = await loadPlaylistFromCSV();
+      console.log("Loaded playlist tracks:", playlistTracks.length);
       
-      // Store recommendations for analytics display
-      setGeneratedPlaylist(recommendations);
+      // Store tracks for analytics display
+      setGeneratedPlaylist(playlistTracks);
 
-      if (recommendations.length === 0) {
-        throw new Error("Could not generate recommendations");
+      if (playlistTracks.length === 0) {
+        throw new Error("Could not load playlist data");
       }
 
       toast.info("Creating playlist on Spotify...");
@@ -80,7 +130,7 @@ const Dashboard = () => {
         body: {
           access_token: accessToken,
           playlist_name: playlistName,
-          track_ids: recommendations.map((r) => r.track_id),
+          track_ids: playlistTracks.map((t) => t.track_id),
         },
       });
 

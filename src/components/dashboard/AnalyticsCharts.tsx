@@ -27,15 +27,15 @@ import {
   Area,
 } from "recharts";
 import { Heart, TrendingUp, Activity, Zap, Users } from "lucide-react";
-import { DatasetStats, SpotifyData, CHART_TOOLTIP_STYLE, GENRE_COLORS } from "./types";
+import { DatasetStats, CHART_TOOLTIP_STYLE } from "./types";
 
 interface AnalyticsChartsProps {
   /** Dataset statistics */
   datasetStats: DatasetStats;
-  /** Whether user is connected to Spotify */
-  isConnected: boolean;
-  /** User's Spotify data */
-  spotifyData?: SpotifyData | null;
+  /** Whether there's generated playlist data */
+  hasPlaylistData: boolean;
+  /** Average audio features from generated playlist */
+  playlistAudioFeatures?: { energy: number; danceability: number };
   /** Combined audio features data for radar chart */
   combinedAudioFeatures: Array<{
     feature: string;
@@ -56,8 +56,8 @@ interface AnalyticsChartsProps {
  */
 export function AnalyticsCharts({
   datasetStats,
-  isConnected,
-  spotifyData,
+  hasPlaylistData,
+  playlistAudioFeatures,
   combinedAudioFeatures,
   combinedGenres,
 }: AnalyticsChartsProps) {
@@ -68,11 +68,11 @@ export function AnalyticsCharts({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-primary" />
-            {isConnected ? "Your Genre Distribution" : "Genre Distribution"}
+            {hasPlaylistData ? "Generated Playlist Genres" : "Genre Distribution"}
           </CardTitle>
           <CardDescription>
-            {isConnected
-              ? "Based on your listening history"
+            {hasPlaylistData
+              ? "Based on your generated playlist"
               : "Distribution across the 114k track dataset"}
           </CardDescription>
         </CardHeader>
@@ -97,7 +97,7 @@ export function AnalyticsCharts({
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number, name: string) => [
-                  value.toLocaleString() + (isConnected ? " tracks" : " tracks"),
+                  value.toLocaleString() + " tracks",
                   name,
                 ]}
               />
@@ -114,8 +114,8 @@ export function AnalyticsCharts({
             Audio Features Profile
           </CardTitle>
           <CardDescription>
-            {isConnected
-              ? "Your music profile vs dataset average"
+            {hasPlaylistData
+              ? "Generated playlist vs dataset average"
               : "Average audio characteristics across all tracks"}
           </CardDescription>
         </CardHeader>
@@ -132,9 +132,9 @@ export function AnalyticsCharts({
                 fill="#1DB954"
                 fillOpacity={0.3}
               />
-              {isConnected && (
+              {hasPlaylistData && (
                 <Radar
-                  name="Your Profile"
+                  name="Generated Playlist"
                   dataKey="personal"
                   stroke="#FF6B9D"
                   fill="#FF6B9D"
@@ -233,15 +233,10 @@ export function AnalyticsCharts({
                 formatter={(value: number) => value.toFixed(2)}
               />
               <Scatter name="Dataset Genres" data={datasetStats.energyVsDanceability} fill="#1DB954" />
-              {isConnected && spotifyData && (
+              {hasPlaylistData && playlistAudioFeatures && (
                 <Scatter
-                  name="Your Profile"
-                  data={[
-                    {
-                      energy: spotifyData.audioFeatures.energy,
-                      danceability: spotifyData.audioFeatures.danceability,
-                    },
-                  ]}
+                  name="Generated Playlist"
+                  data={[playlistAudioFeatures]}
                   fill="#FF6B9D"
                   shape="star"
                 />

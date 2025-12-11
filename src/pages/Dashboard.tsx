@@ -17,7 +17,7 @@ import { useSpotify } from "@/hooks/useSpotify";
 import { useUserPlaylists } from "@/hooks/useUserPlaylists";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { generateRecommendations } from "@/lib/recommendations";
+import { generateRecommendations, RecommendedTrack } from "@/lib/recommendations";
 import {
   DashboardHeader,
   DashboardLoadingState,
@@ -40,6 +40,7 @@ const Dashboard = () => {
   
   // Local state
   const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
+  const [generatedPlaylist, setGeneratedPlaylist] = useState<RecommendedTrack[]>([]);
 
   /**
    * Creates a personalized playlist based on the user's listening habits
@@ -63,6 +64,9 @@ const Dashboard = () => {
       // Generate recommendations client-side using KMeans clustering
       const recommendations = generateRecommendations(tracks, 30);
       console.log("Generated recommendations:", recommendations.length);
+      
+      // Store recommendations for analytics display
+      setGeneratedPlaylist(recommendations);
 
       if (recommendations.length === 0) {
         throw new Error("Could not generate recommendations");
@@ -112,7 +116,7 @@ const Dashboard = () => {
   };
 
   /**
-   * Combines dataset and personal audio features for the radar chart
+   * Combines dataset and generated playlist audio features for the radar chart
    */
   const getCombinedAudioFeatures = () => {
     if (!datasetStats) return [];
@@ -121,13 +125,19 @@ const Dashboard = () => {
 
     return features.map((feature) => {
       const datasetFeature = datasetStats.audioFeatures.find((f) => f.feature === feature);
-      const spotifyValue =
-        spotifyData?.audioFeatures?.[feature.toLowerCase() as keyof typeof spotifyData.audioFeatures] || 0;
+      
+      // Calculate average from generated playlist if available
+      let playlistValue = 0;
+      if (generatedPlaylist.length > 0) {
+        const featureKey = feature.toLowerCase() as keyof RecommendedTrack;
+        const sum = generatedPlaylist.reduce((acc, track) => acc + (Number(track[featureKey]) || 0), 0);
+        playlistValue = sum / generatedPlaylist.length;
+      }
 
       return {
         feature,
         dataset: datasetFeature?.average || 0,
-        personal: isConnected && spotifyData ? spotifyValue : undefined,
+        personal: generatedPlaylist.length > 0 ? playlistValue : undefined,
         fullMark: 1,
       };
     });
@@ -135,20 +145,43 @@ const Dashboard = () => {
 
   /**
    * Gets genre distribution data for the pie chart
-   * Uses personal data when connected, otherwise dataset data
+   * Uses generated playlist data when available, otherwise dataset data
    */
   const getCombinedGenres = () => {
     if (!datasetStats) return [];
 
-    if (!isConnected || !spotifyData?.topGenres) {
-      return datasetStats.genreDistribution;
+    // If we have generated playlist, show those genres
+    if (generatedPlaylist.length > 0) {
+      const genreCounts = new Map<string, number>();
+      for (const track of generatedPlaylist) {
+        genreCounts.set(track.track_genre, (genreCounts.get(track.track_genre) || 0) + 1);
+      }
+      return Array.from(genreCounts.entries())
+        .map(([name, value], i) => ({
+          name,
+          value,
+          color: GENRE_COLORS[i % GENRE_COLORS.length],
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
     }
 
-    return spotifyData.topGenres.slice(0, 10).map((genre, i) => ({
-      name: genre.name,
-      value: genre.count,
-      color: GENRE_COLORS[i % GENRE_COLORS.length],
-    }));
+    return datasetStats.genreDistribution;
+  };
+
+  /**
+   * Gets average energy and danceability from generated playlist for scatter chart
+   */
+  const getPlaylistAudioFeatures = () => {
+    if (generatedPlaylist.length === 0) return undefined;
+    
+    const sumEnergy = generatedPlaylist.reduce((acc, t) => acc + t.energy, 0);
+    const sumDance = generatedPlaylist.reduce((acc, t) => acc + t.danceability, 0);
+    
+    return {
+      energy: sumEnergy / generatedPlaylist.length,
+      danceability: sumDance / generatedPlaylist.length,
+    };
   };
 
   // Loading state
@@ -199,8 +232,8 @@ const Dashboard = () => {
           <TabsContent value="graphs" className="space-y-6">
             <AnalyticsCharts
               datasetStats={datasetStats}
-              isConnected={isConnected}
-              spotifyData={spotifyData}
+              hasPlaylistData={generatedPlaylist.length > 0}
+              playlistAudioFeatures={getPlaylistAudioFeatures()}
               combinedAudioFeatures={getCombinedAudioFeatures()}
               combinedGenres={getCombinedGenres()}
             />

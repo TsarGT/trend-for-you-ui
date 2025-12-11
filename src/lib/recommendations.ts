@@ -1,12 +1,24 @@
+/**
+ * @fileoverview Music recommendation engine using KMeans clustering
+ * 
+ * This module implements a recommendation algorithm that:
+ * 1. Normalizes audio features from the track dataset
+ * 2. Builds KMeans clusters per genre
+ * 3. Finds similar tracks based on audio feature similarity
+ * 
+ * Based on the Spotify Recommender notebook algorithm.
+ */
+
 import { Track } from './csvParser';
 
+/** Audio feature columns used for clustering */
 const FEATURE_COLUMNS = [
   "danceability", "energy", "key", "loudness", "mode",
   "speechiness", "acousticness", "instrumentalness",
   "liveness", "valence", "tempo"
 ] as const;
 
-// HARDCODED SEED TRACKS (45 tracks covering psych-rock, punk-rock, indie-pop)
+/** Hardcoded seed tracks (20 tracks covering psych-rock, punk-rock, indie-pop) */
 export const SEED_TRACKS = [
   { track_id: "6dGnYIeXmHdcikdzNNDMm2", track_name: "Here Comes The Sun - Remastered 2009", artists: "The Beatles", track_genre: "psych-rock" },
   { track_id: "6GG73Jik4jUlQCkKg9JuGO", track_name: "The Middle", artists: "Jimmy Eat World", track_genre: "punk-rock" },

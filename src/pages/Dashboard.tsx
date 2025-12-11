@@ -250,9 +250,9 @@ const Dashboard = () => {
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-[#1DB954]" />
-                        <CardDescription className="text-[#1DB954]">Your Top Genres</CardDescription>
+                        <CardDescription className="text-[#1DB954]">Your Top Genre</CardDescription>
                       </div>
-                      <CardTitle className="text-3xl text-[#1DB954]">{spotifyData.topGenres.length}</CardTitle>
+                      <CardTitle className="text-2xl text-[#1DB954] capitalize">{spotifyData.topGenres[0]?.name || 'N/A'}</CardTitle>
                     </CardHeader>
                   </Card>
                   <Card className="bg-gradient-to-br from-[#1DB954]/20 to-[#1DB954]/5 border-[#1DB954]/30">
@@ -630,7 +630,7 @@ const Dashboard = () => {
                   {/* Top Genres - Horizontal Bar Style like reference image */}
                   <Card className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 border-orange-500/30">
                     <CardHeader>
-                      <CardDescription className="text-orange-400">Your Top Genres</CardDescription>
+                      <CardDescription className="text-orange-400">Your Top Genre</CardDescription>
                       <CardTitle>Genre Breakdown</CardTitle>
                     </CardHeader>
                     <CardContent>

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Analytics charts for the dashboard
- * Contains all Recharts visualizations for audio features, genres, tempo, etc.
+ * Displays visualizations ONLY for generated playlist (model output) data
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,11 +23,9 @@ import {
   PolarRadiusAxis,
   Radar,
   Legend,
-  AreaChart,
-  Area,
 } from "recharts";
-import { Heart, TrendingUp, Activity, Zap, Users } from "lucide-react";
-import { DatasetStats, CHART_TOOLTIP_STYLE } from "./types";
+import { Heart, Activity, Zap, Music } from "lucide-react";
+import { CHART_TOOLTIP_STYLE } from "./types";
 
 interface PlaylistTrack {
   energy: number;
@@ -37,8 +35,6 @@ interface PlaylistTrack {
 }
 
 interface AnalyticsChartsProps {
-  /** Dataset statistics */
-  datasetStats: DatasetStats;
   /** Whether there's generated playlist data */
   hasPlaylistData: boolean;
   /** Individual tracks from generated playlist for scatter */
@@ -59,15 +55,29 @@ interface AnalyticsChartsProps {
 }
 
 /**
- * Grid of analytics charts showing various data visualizations
+ * Grid of analytics charts showing generated playlist data only
  */
 export function AnalyticsCharts({
-  datasetStats,
   hasPlaylistData,
   playlistTracks,
   combinedAudioFeatures,
   combinedGenres,
 }: AnalyticsChartsProps) {
+  // Show empty state if no playlist generated yet
+  if (!hasPlaylistData) {
+    return (
+      <Card className="bg-card border-border">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <Music className="w-16 h-16 text-muted-foreground mb-4" />
+          <h3 className="text-xl font-semibold text-foreground mb-2">No Playlist Generated Yet</h3>
+          <p className="text-muted-foreground text-center max-w-md">
+            Go to the "Your Music" tab and generate a personalized playlist to see analytics about your recommended tracks.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Genre Distribution Pie Chart */}
@@ -75,12 +85,10 @@ export function AnalyticsCharts({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Heart className="w-5 h-5 text-primary" />
-            {hasPlaylistData ? "Generated Playlist Genres" : "Genre Distribution"}
+            Playlist Genre Distribution
           </CardTitle>
           <CardDescription>
-            {hasPlaylistData
-              ? "Based on your generated playlist"
-              : "Distribution across the 114k track dataset"}
+            Genre breakdown of your generated playlist
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -118,12 +126,10 @@ export function AnalyticsCharts({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
-            Audio Features Profile
+            Playlist Audio Features
           </CardTitle>
           <CardDescription>
-            {hasPlaylistData
-              ? "Generated playlist vs dataset average"
-              : "Average audio characteristics across all tracks"}
+            Audio characteristics of your generated playlist
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -133,74 +139,15 @@ export function AnalyticsCharts({
               <PolarAngleAxis dataKey="feature" tick={{ fill: "hsl(0 0% 65%)", fontSize: 12 }} />
               <PolarRadiusAxis angle={30} domain={[0, 1]} tick={{ fill: "hsl(0 0% 65%)" }} />
               <Radar
-                name="Dataset Average"
-                dataKey="dataset"
-                stroke="#1DB954"
-                fill="#1DB954"
+                name="Generated Playlist"
+                dataKey="personal"
+                stroke="#FF6B9D"
+                fill="#FF6B9D"
                 fillOpacity={0.3}
               />
-              {hasPlaylistData && (
-                <Radar
-                  name="Generated Playlist"
-                  dataKey="personal"
-                  stroke="#FF6B9D"
-                  fill="#FF6B9D"
-                  fillOpacity={0.3}
-                />
-              )}
               <Legend />
               <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
             </RadarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Popularity Distribution Bar Chart */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
-            Popularity Distribution
-          </CardTitle>
-          <CardDescription>Track count by popularity score range (0-100)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={datasetStats.popularityDistribution}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 20%)" />
-              <XAxis dataKey="range" tick={{ fill: "hsl(0 0% 65%)" }} />
-              <YAxis tick={{ fill: "hsl(0 0% 65%)" }} />
-              <Tooltip
-                contentStyle={CHART_TOOLTIP_STYLE}
-                formatter={(value: number) => [value.toLocaleString() + " tracks", "Count"]}
-              />
-              <Bar dataKey="count" fill="#1DB954" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Tempo Distribution Area Chart */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            Tempo Distribution
-          </CardTitle>
-          <CardDescription>Track count by BPM range (beats per minute)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={datasetStats.tempoDistribution}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 20%)" />
-              <XAxis dataKey="tempo" tick={{ fill: "hsl(0 0% 65%)" }} />
-              <YAxis tick={{ fill: "hsl(0 0% 65%)" }} />
-              <Tooltip
-                contentStyle={CHART_TOOLTIP_STYLE}
-                formatter={(value: number) => [value.toLocaleString() + " tracks", "Count"]}
-              />
-              <Area type="monotone" dataKey="count" stroke="#1E90FF" fill="#1E90FF" fillOpacity={0.3} />
-            </AreaChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
@@ -213,9 +160,7 @@ export function AnalyticsCharts({
             Energy vs Danceability
           </CardTitle>
           <CardDescription>
-            {hasPlaylistData 
-              ? "Generated playlist tracks plotted by audio features"
-              : "Average energy and danceability by genre"}
+            Each track in your playlist plotted by audio features
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -244,21 +189,13 @@ export function AnalyticsCharts({
                 cursor={{ strokeDasharray: "3 3" }}
                 contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number, name: string) => [value.toFixed(2), name]}
-                labelFormatter={(label) => ""}
+                labelFormatter={() => ""}
               />
-              {hasPlaylistData && playlistTracks.length > 0 ? (
-                <Scatter 
-                  name="Generated Playlist" 
-                  data={playlistTracks} 
-                  fill="#FF6B9D"
-                />
-              ) : (
-                <Scatter 
-                  name="Dataset Genres" 
-                  data={datasetStats.energyVsDanceability} 
-                  fill="#1DB954" 
-                />
-              )}
+              <Scatter 
+                name="Playlist Tracks" 
+                data={playlistTracks} 
+                fill="#FF6B9D"
+              />
               <Legend />
             </ScatterChart>
           </ResponsiveContainer>
@@ -269,14 +206,14 @@ export function AnalyticsCharts({
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            Top Genres by Track Count
+            <Music className="w-5 h-5 text-primary" />
+            Top Genres in Playlist
           </CardTitle>
-          <CardDescription>Most represented genres in the 114k track dataset</CardDescription>
+          <CardDescription>Most common genres in your generated playlist</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={datasetStats.genreDistribution.slice(0, 8)} layout="vertical">
+            <BarChart data={combinedGenres.slice(0, 8)} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 20%)" />
               <XAxis type="number" tick={{ fill: "hsl(0 0% 65%)" }} />
               <YAxis dataKey="name" type="category" tick={{ fill: "hsl(0 0% 65%)" }} width={80} />

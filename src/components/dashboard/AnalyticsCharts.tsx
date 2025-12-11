@@ -29,13 +29,20 @@ import {
 import { Heart, TrendingUp, Activity, Zap, Users } from "lucide-react";
 import { DatasetStats, CHART_TOOLTIP_STYLE } from "./types";
 
+interface PlaylistTrack {
+  energy: number;
+  danceability: number;
+  track_name: string;
+  track_genre: string;
+}
+
 interface AnalyticsChartsProps {
   /** Dataset statistics */
   datasetStats: DatasetStats;
   /** Whether there's generated playlist data */
   hasPlaylistData: boolean;
-  /** Average audio features from generated playlist */
-  playlistAudioFeatures?: { energy: number; danceability: number };
+  /** Individual tracks from generated playlist for scatter */
+  playlistTracks: PlaylistTrack[];
   /** Combined audio features data for radar chart */
   combinedAudioFeatures: Array<{
     feature: string;
@@ -57,7 +64,7 @@ interface AnalyticsChartsProps {
 export function AnalyticsCharts({
   datasetStats,
   hasPlaylistData,
-  playlistAudioFeatures,
+  playlistTracks,
   combinedAudioFeatures,
   combinedGenres,
 }: AnalyticsChartsProps) {
@@ -205,11 +212,15 @@ export function AnalyticsCharts({
             <Zap className="w-5 h-5 text-primary" />
             Energy vs Danceability
           </CardTitle>
-          <CardDescription>Correlation between high-energy and danceable tracks by genre</CardDescription>
+          <CardDescription>
+            {hasPlaylistData 
+              ? "Generated playlist tracks plotted by audio features"
+              : "Average energy and danceability by genre"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <ScatterChart>
+            <ScatterChart margin={{ bottom: 20, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(0 0% 20%)" />
               <XAxis
                 type="number"
@@ -217,7 +228,8 @@ export function AnalyticsCharts({
                 name="Energy"
                 tick={{ fill: "hsl(0 0% 65%)" }}
                 domain={[0, 1]}
-                label={{ value: "Energy", position: "bottom", fill: "hsl(0 0% 65%)" }}
+                tickCount={6}
+                label={{ value: "Energy", position: "bottom", fill: "hsl(0 0% 65%)", offset: 0 }}
               />
               <YAxis
                 type="number"
@@ -225,20 +237,26 @@ export function AnalyticsCharts({
                 name="Danceability"
                 tick={{ fill: "hsl(0 0% 65%)" }}
                 domain={[0, 1]}
+                tickCount={6}
                 label={{ value: "Danceability", angle: -90, position: "insideLeft", fill: "hsl(0 0% 65%)" }}
               />
               <Tooltip
                 cursor={{ strokeDasharray: "3 3" }}
                 contentStyle={CHART_TOOLTIP_STYLE}
-                formatter={(value: number) => value.toFixed(2)}
+                formatter={(value: number, name: string) => [value.toFixed(2), name]}
+                labelFormatter={(label) => ""}
               />
-              <Scatter name="Dataset Genres" data={datasetStats.energyVsDanceability} fill="#1DB954" />
-              {hasPlaylistData && playlistAudioFeatures && (
-                <Scatter
-                  name="Generated Playlist"
-                  data={[playlistAudioFeatures]}
+              {hasPlaylistData && playlistTracks.length > 0 ? (
+                <Scatter 
+                  name="Generated Playlist" 
+                  data={playlistTracks} 
                   fill="#FF6B9D"
-                  shape="star"
+                />
+              ) : (
+                <Scatter 
+                  name="Dataset Genres" 
+                  data={datasetStats.energyVsDanceability} 
+                  fill="#1DB954" 
                 />
               )}
               <Legend />

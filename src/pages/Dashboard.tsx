@@ -170,18 +170,15 @@ const Dashboard = () => {
   };
 
   /**
-   * Gets average energy and danceability from generated playlist for scatter chart
+   * Gets individual tracks from generated playlist for scatter chart
    */
-  const getPlaylistAudioFeatures = () => {
-    if (generatedPlaylist.length === 0) return undefined;
-    
-    const sumEnergy = generatedPlaylist.reduce((acc, t) => acc + t.energy, 0);
-    const sumDance = generatedPlaylist.reduce((acc, t) => acc + t.danceability, 0);
-    
-    return {
-      energy: sumEnergy / generatedPlaylist.length,
-      danceability: sumDance / generatedPlaylist.length,
-    };
+  const getPlaylistTracks = () => {
+    return generatedPlaylist.map(t => ({
+      energy: t.energy,
+      danceability: t.danceability,
+      track_name: t.track_name,
+      track_genre: t.track_genre,
+    }));
   };
 
   // Loading state
@@ -227,13 +224,12 @@ const Dashboard = () => {
               spotifyData={spotifyData}
             />
           </TabsContent>
-
           {/* Analytics Tab */}
           <TabsContent value="graphs" className="space-y-6">
             <AnalyticsCharts
               datasetStats={datasetStats}
               hasPlaylistData={generatedPlaylist.length > 0}
-              playlistAudioFeatures={getPlaylistAudioFeatures()}
+              playlistTracks={getPlaylistTracks()}
               combinedAudioFeatures={getCombinedAudioFeatures()}
               combinedGenres={getCombinedGenres()}
             />
